@@ -1,0 +1,80 @@
+.App {
+  text-align: center;
+  min-height: 100vh;
+  background-color: #282c34;
+  color: white;
+}
+
+.App-header {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.test-button {
+  background-color: #61dafb;
+  border: none;
+  color: #282c34;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 20px 0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.test-button:hover {
+  background-color: #4fa8c7;
+}
+
+.test-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.test-results {
+  width: 100%;
+  max-width: 800px;
+  margin: 20px auto;
+}
+
+.results-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.test-case {
+  background-color: #3b4049;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: left;
+}
+
+.test-case.passed {
+  border-left: 4px solid #4caf50;
+}
+
+.test-case.failed {
+  border-left: 4px solid #f44336;
+}
+
+.error-message {
+  color: #f44336;
+  background-color: rgba(244, 67, 54, 0.1);
+  padding: 10px;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+.error {
+  color: #f44336;
+  font-size: 0.9em;
+  margin-top: 10px;
+} 

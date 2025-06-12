@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz Host Panel</title>
+  <link rel="stylesheet" href="session.css">
+  <!-- Socket.io client kütüphanesi eklendi -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Quiz Host Panel</h1>
+    <div id="login-form">
+      <input type="text" id="username" placeholder="Username" />
+      <input type="password" id="password" placeholder="Password" />
+      <button onclick="login()">Login</button>
+      <button onclick="register()">Register</button>
+    </div>
+    <div id="host-form" style="display:none;">
+      <select id="quizSelect">
+        <option value="">Quiz Seçiniz</option>
+      </select>
+      <input type="text" id="hostId" placeholder="Host User ID" />
+      <button onclick="startSession()">Start Session</button>
+    </div>
+    <div id="session-info" style="display:none;">
+      <div class="status" id="sessionStatus"></div>
+      <div>Session ID: <span id="sessionId"></span></div>
+      <button onclick="endSession()">End Session</button>
+      <button id="startQuizBtn" onclick="startQuizFlowUI()">Oyunu Başlat</button>
+      <div class="participants">
+        <h3>Participants</h3>
+        <ul id="participantsList"></ul>
+      </div>
+    </div>
+    <div class="error" id="hostError"></div>
+  </div>
+  <script src="host.js"></script>
+</body>
+</html>
