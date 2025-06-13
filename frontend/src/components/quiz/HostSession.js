@@ -37,6 +37,7 @@ import {
   CheckCircle as ShowAnswerIcon,
 } from '@mui/icons-material';
 import socketService from '../../services/socket';
+import soundService from '../../services/soundService';
 import { apiService } from '../../services/api';
 
 const HostSession = () => {
@@ -56,10 +57,10 @@ const HostSession = () => {
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [timer, setTimer] = useState(null);
-  const [questionPhase, setQuestionPhase] = useState('waiting'); // waiting, active, reviewing
+  const [timer, setTimer] = useState(null);  const [questionPhase, setQuestionPhase] = useState('waiting'); // waiting, active, reviewing
   const [answerStats, setAnswerStats] = useState({ correct: 0, incorrect: 0, total: 0 });
   const [socketSetupDone, setSocketSetupDone] = useState(false);
+  const [bgMusicUrl, setBgMusicUrl] = useState(null);
   const audioRef = useRef(null);
 
   useEffect(() => {
@@ -238,9 +239,56 @@ const HostSession = () => {
       if (data.finalLeaderboard) {
         setLeaderboard(data.finalLeaderboard);
       }
+    });    // Listen for play sound
+    socketService.on('playSound', (data) => {
+      console.log('Play sound event received:', data);
+      if (data.sessionId === sessionId) {
+        console.log('Playing sound for session:', sessionId, 'Type:', data.type);
+        soundService.playSound(data.type);
+      }
+    });
+
+    // Listen for music events
+    socketService.on('playMusic', (data) => {
+      console.log('Play music event received:', data);
+      if (data.sessionId === sessionId && data.url) {
+        try {
+          const music = new Audio(data.url);
+          music.volume = 0.3;
+          music.play();
+        } catch (error) {
+          console.error('Error playing music:', error);
+        }
+      }
+    });    // Listen for background music events - but don't play on host side
+    socketService.on('playBackgroundMusic', (data) => {
+      console.log('Play background music event received on HOST (not playing):', data);
+      // Host doesn't play background music, only stores the URL for reference
+      if (data.sessionId === sessionId && data.url) {
+        setBgMusicUrl(data.url);
+      }
+    });
+
+    // Listen for game finished
+    socketService.on('gameFinished', (data) => {
+      console.log('Game finished event received:', data);
+      if (data.sessionId === sessionId) {
+        setQuestionPhase('finished');
+        if (data.leaderboard) {
+          setLeaderboard(data.leaderboard);
+        }
+      }
+    });
+
+    // Listen for final leaderboard
+    socketService.on('showFinalLeaderboard', (data) => {
+      console.log('Final leaderboard event received:', data);
+      if (data.sessionId === sessionId) {
+        setLeaderboard(data.leaderboard || []);
+        setQuestionPhase('finished');
+      }
     });
   };
-
   const handleStartGame = async () => {
     try {
       // Update session status to ACTIVE
@@ -251,11 +299,16 @@ const HostSession = () => {
       });
       
       if (!response.ok) throw new Error('Oyun başlatılamadı');
-      
-      // Emit start game event via socket
+        // Emit start game event via socket
       console.log('Emitting startQuiz for sessionId:', sessionId);
       socketService.emit('startQuiz', { sessionId });
       setGameStatus('active');
+      
+      // Host doesn't play background music - only players do
+      // Background music will be triggered for players via socket events
+      
+      // Play question start sound
+      soundService.playSound('question');
       
       // Show success message
       console.log('Game started successfully');
@@ -293,12 +346,18 @@ const HostSession = () => {
       question: {
         ...question,
         index: questionIndex + 1,
-        total: questions.length
+        total: questions.length,
+        options: question.options?.map(opt => ({
+          id: opt.id,
+          option_text: opt.option_text,
+          is_correct: opt.is_correct
+        }))
       }
     });
     console.log('showQuestion emitted');
 
     // Start timer
+    if (timer) clearInterval(timer);
     const newTimer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -396,43 +455,18 @@ const HostSession = () => {
     } catch (err) {
       setError(err.message);
     }
-  };
-
-  const setupBackgroundMusic = (url) => {
-    if (!url) {
-      if (audioRef.current) audioRef.current.pause();
-      return;
-    }
-
-    const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
-
-    // Stop previous
+  };  const setupBackgroundMusic = (url) => {
+    // Host doesn't play background music - only players do
+    console.log('Host setupBackgroundMusic called but not playing music (host side)');
+    
+    // Stop any existing audio on host side
     if (audioRef.current) {
       audioRef.current.pause && audioRef.current.pause();
       audioRef.current = null;
     }
-
-    if (!isYouTube) {
-      const audio = new Audio(url);
-      audio.loop = true;
-      audio.volume = 0.6;
-      audioRef.current = audio;
-      if (gameStatus === 'active') {
-        audio.play().catch(() => {});
-      }
-    } else {
-      const videoIdMatch = url.match(/(?:v=|\.be\/)([A-Za-z0-9_-]{11})/);
-      if (videoIdMatch) {
-        const iframe = document.createElement('iframe');
-        iframe.src = `https://www.youtube.com/embed/${videoIdMatch[1]}?autoplay=1&loop=1&playlist=${videoIdMatch[1]}&controls=0&mute=0`;
-        iframe.style.display = 'none';
-        iframe.setAttribute('data-quiz-bg', 'true');
-        document.body.appendChild(iframe);
-        audioRef.current = {
-          pause: () => iframe.parentNode && iframe.parentNode.removeChild(iframe)
-        };
-      }
-    }
+    
+    // Host just stores the URL for reference but doesn't play music
+    // The music will only play on player side when game starts
   };
 
   if (loading) {

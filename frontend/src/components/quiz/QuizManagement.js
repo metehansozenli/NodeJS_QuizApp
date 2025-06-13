@@ -42,6 +42,7 @@ import {
 import { getQuiz, deleteQuiz } from '../../store/slices/quizSlice';
 import socketService from '../../services/socket';
 import api from '../../services/api';
+import soundService from '../../services/soundService';
 
 const QuizManagement = () => {
   const { sessionId } = useParams();
@@ -67,6 +68,7 @@ const QuizManagement = () => {
     const currentSessionId = sessionId || localStorage.getItem('sessionId');
 
     setGameStatus('finished');
+    soundService.stopBackgroundMusic();
 
     // Emit game finished event
     socketService.emit('finishGame', {
@@ -122,7 +124,7 @@ const QuizManagement = () => {
           }, (nextQuestion.duration_seconds || 30) * 1000);
         }, 3000);
       }
-    }, 5000); // Show correct answer for 5 seconds
+    }, 5000);
   }, [sessionId, currentQuestion, currentQuiz, questionIndex, handleFinishGame]);
 
   const handleStartQuestion = useCallback(() => {
@@ -244,6 +246,9 @@ const QuizManagement = () => {
           const newParticipants = [...prev, { ...userData, id: userData.userId }];
           return newParticipants;
         });
+        if (userData.sessionId === sessionId) {
+          soundService.playUserJoin();
+        }
       });
 
       socketService.on('userLeft', (userData) => {
@@ -274,6 +279,7 @@ const QuizManagement = () => {
       socketService.on('gameStarted', () => {
         console.log('Game started event received - automatically starting first question');
         setGameStatus('active');
+        soundService.playBackgroundMusic();
 
         // Automatically start the first question
         setTimeout(() => {
@@ -281,11 +287,12 @@ const QuizManagement = () => {
             console.log('Auto-starting first question...');
             handleStartQuestion();
           }
-        }, 1000); // Small delay to ensure state is updated
+        }, 1000);
       });
 
       socketService.on('sessionEnded', () => {
         setGameStatus('finished');
+        soundService.stopAllSounds();
       });
 
       socketService.on('autoNextQuestion', (data) => {
@@ -325,8 +332,9 @@ const QuizManagement = () => {
       socketService.off('autoNextQuestion');
       socketService.off('showQuestion');
       socketService.off('showCorrectAnswer');
+      soundService.stopAllSounds();
     };
-  }, [currentQuiz, questionIndex, handleFinishGame, handleStartQuestion]);
+  }, [sessionId, currentQuiz, questionIndex, handleFinishGame, handleStartQuestion]);
 
   const connectToSession = (sessionId) => {
     socketService.connect();

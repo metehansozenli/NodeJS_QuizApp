@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz User Panel</title>
+  <link rel="stylesheet" href="session.css">
+  <!-- Socket.io client kütüphanesi eklendi -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Quiz User Panel</h1>
+    <div id="join-form">
+      <input type="text" id="sessionId" placeholder="Session ID" />
+      <input type="text" id="userId" placeholder="User ID" />
+      <button onclick="joinSession()">Join Session</button>
+    </div>
+    <div id="user-info" style="display:none;">
+      <div class="status" id="userStatus"></div>
+      <div>Session ID: <span id="joinedSessionId"></span></div>
+      <button onclick="leaveSession()">Leave Session</button>
+      <div class="participants">
+        <h3>Participants</h3>
+        <ul id="userParticipantsList"></ul>
+      </div>
+    </div>
+    <div id="questionArea" style="display:none;"></div>
+    <div class="error" id="userError"></div>
+  </div>
+  <script src="user.js"></script>
+</body>
+</html>

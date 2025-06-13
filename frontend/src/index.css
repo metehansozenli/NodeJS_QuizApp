@@ -184,10 +184,24 @@ code {
 
 .answer-option.correct {
   animation: correctAnswer 0.5s ease-in-out;
+  background: linear-gradient(45deg, #4caf50, #388e3c) !important;
+  border: 3px solid #2e7d32 !important;
+  box-shadow: 0 0 20px rgba(76, 175, 80, 0.6) !important;
 }
 
 .answer-option.incorrect {
   animation: incorrectAnswer 0.5s ease-in-out;
+  background: linear-gradient(45deg, #f44336, #d32f2f) !important;
+  border: 3px solid #c62828 !important;
+  box-shadow: 0 0 20px rgba(244, 67, 54, 0.6) !important;
+}
+
+/* Show correct answer even if not selected during review */
+.answer-option.correct-show {
+  background: linear-gradient(45deg, #4caf50, #388e3c) !important;
+  border: 3px solid #2e7d32 !important;
+  box-shadow: 0 0 20px rgba(76, 175, 80, 0.6) !important;
+  animation: pulse 1s infinite;
 }
 
 @keyframes correctAnswer {
@@ -201,6 +215,12 @@ code {
   25% { transform: translateX(-10px); }
   75% { transform: translateX(10px); }
   100% { transform: translateX(0); }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
 }
 
 .quiz-card {

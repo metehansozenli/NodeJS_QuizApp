@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
   Container,
@@ -26,8 +26,11 @@ import {
   Timer as TimerIcon,
   Quiz as QuizIcon,
   EmojiEvents as TrophyIcon,
+  ExitToApp,
 } from '@mui/icons-material';
 import socketService from '../../services/socket';
+import soundService from '../../services/soundService';
+import { useAuth } from '../../contexts/AuthContext';
 
 const JoinQuiz = () => {
   const { gameCode } = useParams();
@@ -52,13 +55,106 @@ const JoinQuiz = () => {
   const [sessionId, setSessionId] = useState(null);
   const [gameStatus, setGameStatus] = useState('joining');
   const [bgMusicUrl, setBgMusicUrl] = useState(null);
+  const [showAnswersAfterTimer, setShowAnswersAfterTimer] = useState(false);
   const audioRef = useRef(null);
+  const currentQuestionRef = useRef(null);
+  const selectedAnswerRef = useRef(null);
+
+  // Ses yönetimi için state
+  const [sounds, setSounds] = useState({
+    backgroundMusic: null,
+    timerSound: null,
+    userJoinSound: null,
+    correctAnswerSound: null,
+    wrongAnswerSound: null,
+    gameWinSound: null,
+    gameLoseSound: null
+  });
+
+  // Score display modal state
+  const [showScoreModal, setShowScoreModal] = useState(false);
+  const [scoreModalData, setScoreModalData] = useState(null);
+
+  // Ses çalma fonksiyonu
+  const playSound = (type, volume = 0.5) => {
+    try {
+      let soundUrl;
+      switch (type) {
+        case 'background':
+          soundUrl = '/assets/soundEffects/background-music-224633.mp3';
+          break;
+        case 'timer':
+          soundUrl = '/assets/soundEffects/mixkit-fini-countdown-927.wav';
+          break;
+        case 'user-join':
+          soundUrl = '/assets/soundEffects/user-join.wav';
+          break;
+        case 'correct-answer':
+          soundUrl = '/assets/soundEffects/mixkit-true-answer-notification-951.wav';
+          break;
+        case 'wrong-answer':
+          soundUrl = '/assets/soundEffects/mixkit-wrong-answer-fail-notification-946.wav';
+          break;
+        case 'game-win':
+          soundUrl = '/assets/soundEffects/mixkit-game-champion.wav';
+          break;
+        case 'game-lose':
+          soundUrl = '/assets/soundEffects/mixkit-game-loser.wav';
+          break;
+        default:
+          return;
+      }
+
+      const sound = new Audio(soundUrl);
+      sound.volume = volume;
+      
+      if (type === 'background') {
+        sound.loop = true;
+        if (sounds.backgroundMusic) {
+          sounds.backgroundMusic.pause();
+        }
+        setSounds(prev => ({ ...prev, backgroundMusic: sound }));
+      }
+      
+      sound.play();
+    } catch (error) {
+      console.error(`Error playing ${type} sound:`, error);
+    }
+  };
+
+  // Ses durdurma fonksiyonu
+  const stopSound = (type) => {
+    try {
+      if (sounds[type]) {
+        sounds[type].pause();
+        sounds[type].currentTime = 0;
+      }
+    } catch (error) {
+      console.error(`Error stopping ${type} sound:`, error);
+    }
+  };
+
+  // Tüm sesleri durdur
+  const stopAllSounds = () => {
+    Object.keys(sounds).forEach(type => {
+      stopSound(type);
+    });
+  };
 
   useEffect(() => {
     if (gameCode) {
       setJoinForm(prev => ({ ...prev, gameCode }));
     }
   }, [gameCode]);
+
+  // Keep refs updated with current state values
+  useEffect(() => {
+    currentQuestionRef.current = currentQuestion;
+  }, [currentQuestion]);
+
+  useEffect(() => {
+    selectedAnswerRef.current = selectedAnswer;
+  }, [selectedAnswer]);
 
   useEffect(()=>{
     if(gameCode && joinForm.gameCode===gameCode && !sessionId && gameState==='joining' && !loading){
@@ -119,18 +215,34 @@ const JoinQuiz = () => {
     // Listen for user joined
     socketService.on('userJoined', (data) => {
       console.log('User joined event received:', data);
-      if (data.sessionId === sessionId && data.username !== (user?.username || 'Misafir')) {
-        // Add new participant to the list (exclude self)
+      if (data.sessionId === sessionId && data.participant) {
+        if (data.playSound && data.participant.username !== (user?.username || 'Misafir')) {
+          soundService.playUserJoin();
+        }
+        
+        // Katılımcı listesini güncelle
         setParticipants(prev => {
-          // Check if user already exists to prevent duplicates
-          const exists = prev.find(p => p.username === data.username);
-          if (exists) return prev;
+          const newParticipants = [...prev];
+          const existingIndex = newParticipants.findIndex(p => 
+            (p.userId && data.participant.id && p.userId === data.participant.id) || 
+            (p.username && data.participant.username && p.username === data.participant.username)
+          );
           
-          return [...prev, {
-            username: data.username,
-            userId: data.userId,
-            joined_at: data.timestamp || new Date().toISOString()
-          }];
+          if (existingIndex === -1) {
+            newParticipants.push({
+              userId: data.participant.id || null,
+              username: data.participant.username || 'Misafir',
+              score: data.participant.score || 0,
+              joined_at: new Date().toISOString()
+            });
+          } else {
+            newParticipants[existingIndex] = {
+              ...newParticipants[existingIndex],
+              score: data.participant.score || 0
+            };
+          }
+          
+          return newParticipants;
         });
       }
     });
@@ -173,38 +285,81 @@ const JoinQuiz = () => {
     // Listen for question updates
     socketService.on('showQuestion', (data) => {
       console.log('Show question event received:', data);
-      // Players should receive questions (filter out is_correct for display)
       if (data.sessionId === sessionId && data.question) {
         const playerQuestion = {
           ...data.question,
           options: data.question.options?.map(opt => ({
             id: opt.id,
-            option_text: opt.option_text
-            // Don't include is_correct for players
+            option_text: opt.option_text,
+            is_correct: opt.is_correct
           }))
         };
         
+        console.log('Processed question options:', playerQuestion.options); // Debug log
+        
         setCurrentQuestion(playerQuestion);
         setQuestionIndex(data.question.index - 1 || 0);
-        setGameState('question');  // Update game state
+        setGameState('question');
         setGameStatus('question');
         setSelectedAnswer(null);
+        setShowAnswersAfterTimer(false); // Yeni soru geldiğinde cevap gösterimini resetle
         setTimeLeft(data.question.duration_seconds || 30);
         startTimer();
-        console.log('Player question set:', playerQuestion);
       }
     });
 
     // Listen for correct answer
     socketService.on('showCorrectAnswer', (data) => {
       console.log('Show correct answer event received:', data);
+      console.log('Debug - showCorrectAnswer data.question.options:', data.question?.options);
+      
       if (data.sessionId === sessionId) {
-        // Update current question with correct flags so UI can highlight
         if (data.question) {
-          setCurrentQuestion(data.question);
+          // Update question with correct answer information
+          const updatedQuestion = {
+            ...data.question,
+            options: data.question.options?.map(opt => ({
+              id: opt.id,
+              option_text: opt.option_text,
+              is_correct: opt.is_correct
+            }))
+          };
+          
+          console.log('Debug - Updated question options:', updatedQuestion.options);
+          setCurrentQuestion(updatedQuestion);
         }
         setGameState('reviewing');
         setGameStatus('reviewing');
+        
+        // Timer dolduğunda kullanıcının cevabına göre ses efekti çal
+        const currentSelectedAnswer = selectedAnswerRef.current;
+        const currentQuestionData = currentQuestionRef.current;
+        
+        if (currentSelectedAnswer !== null && currentQuestionData?.options?.[currentSelectedAnswer]) {
+          const isCorrect = currentQuestionData.options[currentSelectedAnswer].is_correct;
+          console.log('Playing sound effect for answer:', { selectedAnswer: currentSelectedAnswer, isCorrect });
+          
+          if (isCorrect) {
+            playSound('correct-answer');
+          } else {
+            playSound('wrong-answer');
+          }
+        }
+
+        // Show score modal after 2 seconds to let users see correct answer first
+        setTimeout(() => {
+          setScoreModalData({
+            participants: participants.sort((a, b) => (b.score || 0) - (a.score || 0)),
+            userScore: score,
+            currentUser: user?.username || 'Misafir'
+          });
+          setShowScoreModal(true);
+
+          // Hide score modal after 5 seconds
+          setTimeout(() => {
+            setShowScoreModal(false);
+          }, 5000);
+        }, 2000);
       }
     });
 
@@ -220,9 +375,9 @@ const JoinQuiz = () => {
     socketService.on('gameStarted', (data) => {
       console.log('Game started event received:', data);
       if (data.sessionId === sessionId) {
-        setGameState('active');  // Update game state
+        setGameState('active');
         setGameStatus('active');
-        console.log('Player game state changed to active');
+        soundService.playBackgroundMusic();
       }
     });
 
@@ -239,10 +394,20 @@ const JoinQuiz = () => {
     socketService.on('quizCompleted', (data) => {
       console.log('Quiz completed event received:', data);
       if (data.sessionId === sessionId) {
+        soundService.stopBackgroundMusic();
         setGameState('finished');
         setGameStatus('finished');
         if (data.finalLeaderboard) {
           setResults({ leaderboard: data.finalLeaderboard });
+        }
+        
+        if (data.winner) {
+          const isWinner = data.winner.username === (user?.username || 'Misafir');
+          if (isWinner) {
+            soundService.playGameWin();
+          } else {
+            soundService.playGameLose();
+          }
         }
       }
     });
@@ -252,6 +417,61 @@ const JoinQuiz = () => {
       console.log('Final leaderboard received:', data);
       if (data.sessionId === sessionId) {
         setResults({ leaderboard: data.leaderboard });
+      }
+    });
+
+    // Listen for background music
+    socketService.on('playBackgroundMusic', (data) => {
+      console.log('Background music event received:', data);
+      if (data.sessionId === sessionId) {
+        try {
+          const bgMusic = new Audio(data.url);
+          bgMusic.loop = true;
+          bgMusic.volume = data.volume || 0.3;
+          bgMusic.play();
+        } catch (error) {
+          console.error('Error playing background music:', error);
+        }
+      }
+    });
+
+    // Listen for music
+    socketService.on('playMusic', (data) => {
+      console.log('Music event received:', data);
+      if (data.sessionId === sessionId && data.url) {
+        try {
+          const music = new Audio(data.url);
+          music.volume = 0.3;
+          music.play();
+        } catch (error) {
+          console.error('Error playing music:', error);
+        }
+      }
+    });
+
+    // Listen for sound effects
+    socketService.on('playSound', (data) => {
+      console.log('Sound event received:', data);
+      if (data.sessionId === sessionId && data.type) {
+        // Eğer personal: true ise, bu kullanıcının kişisel ses efekti (doğru cevap gösteriminde)
+        if (data.personal) {
+          console.log('Playing personal sound effect:', data.type);
+          try {
+            soundService.playSound(data.type);
+            console.log('Sound played successfully:', data.type);
+          } catch (error) {
+            console.error('Error playing sound:', error);
+          }
+          return;
+        }
+        
+        // Diğer durumlarda normal ses efektlerini çal (timer hariç answer sounds)
+        if (data.type === 'correct-answer' || data.type === 'wrong-answer') {
+          console.log('Skipping non-personal answer sound');
+          return;
+        }
+        console.log('Playing general sound effect:', data.type);
+        soundService.playSound(data.type);
       }
     });
 
@@ -268,6 +488,9 @@ const JoinQuiz = () => {
       socketService.off('removeParticipant');
       socketService.off('quizCompleted');
       socketService.off('showFinalLeaderboard');
+      socketService.off('playBackgroundMusic');
+      socketService.off('playMusic');
+      socketService.off('playSound');
     };
   }, [sessionId, user?.username]); // Remove timer from dependencies
 
@@ -343,6 +566,9 @@ const JoinQuiz = () => {
 
   const handleLeaveSession = () => {
     if (sessionId) {
+      // Tüm sesleri durdur
+      stopAllSounds();
+      
       socketService.emit('leaveSession', { sessionId });
       localStorage.removeItem('playerSessionId');
       localStorage.removeItem('playerGameCode');
@@ -357,19 +583,52 @@ const JoinQuiz = () => {
   };
 
   const startTimer = () => {
-    // Clear any existing timer first
     if (timer) {
       clearInterval(timer);
     }
     
     const newTimer = setInterval(() => {
       setTimeLeft(prev => {
+        if (prev <= 9 && prev > 0) {
+          playSound('timer');
+        }
         if (prev <= 1) {
           clearInterval(newTimer);
           setTimer(null);
-          if (selectedAnswer === null) {
-            handleAnswerSelect(-1); // Zaman doldu, boş cevap gönder
+          
+          // Timer 0'a ulaştığında kullanıcının cevabına göre ses efekti çal
+          const currentSelectedAnswer = selectedAnswerRef.current;
+          const currentQuestionData = currentQuestionRef.current;
+          
+          console.log('Timer expired - Debug info:', {
+            currentSelectedAnswer,
+            currentQuestionData,
+            selectedOption: currentQuestionData?.options?.[currentSelectedAnswer],
+            isCorrect: currentQuestionData?.options?.[currentSelectedAnswer]?.is_correct
+          });
+          
+          // Eğer kullanıcı cevap verdiyse ses efekti çal
+          if (currentSelectedAnswer !== null && currentQuestionData?.options?.[currentSelectedAnswer]) {
+            const isCorrect = currentQuestionData.options[currentSelectedAnswer].is_correct;
+            console.log('Playing sound effect on timer expiry:', { selectedAnswer: currentSelectedAnswer, isCorrect });
+            
+            setTimeout(() => {
+              if (isCorrect) {
+                playSound('correct-answer');
+              } else {
+                playSound('wrong-answer');
+              }
+            }, 500); // 500ms gecikme ile ses efekti çal
           }
+          
+          if (currentSelectedAnswer === null) {
+            // Kullanıcı cevap vermemişse bir işlem yap
+            console.log('No answer selected, timer expired');
+            handleAnswerSelect(-1);
+          } else {
+            console.log('Timer expired with answer:', currentSelectedAnswer);
+          }
+          
           return 0;
         }
         return prev - 1;
@@ -440,19 +699,6 @@ const JoinQuiz = () => {
     }
   };
 
-  const handleAnswer = (option) => {
-    if (selectedAnswer !== null) return; // Already answered
-    
-    setSelectedAnswer(option);
-    
-    // Submit answer
-    socketService.emit('submitAnswer', {
-      sessionId,
-      answer: option,
-      questionIndex
-    });
-  };
-
   const handleInputChange = (field, value) => {
     setJoinForm(prev => ({
       ...prev,
@@ -464,10 +710,10 @@ const JoinQuiz = () => {
       <Container maxWidth="sm" sx={{ py: 4 }}>
         <div className="kahoot-card">
           <div className="kahoot-title">
-            🎮 Join the Quiz!
+            🎮 Quiz'e Katıl!
           </div>
           <div className="kahoot-subtitle">
-            Enter the game code to get started
+            Başlamak için oyun kodunu girin
           </div>
           
           {error && (
@@ -487,12 +733,12 @@ const JoinQuiz = () => {
           <form onSubmit={handleJoinGame}>
             <TextField
               fullWidth
-              label="🎯 Game Code"
+              label="🎯 Oyun Kodu"
               value={joinForm.gameCode}
               onChange={(e) => handleInputChange('gameCode', e.target.value)}
               margin="normal"
               required
-              placeholder="Enter 6-digit code"
+              placeholder="6 haneli kodu girin"
               inputProps={{ maxLength: 6 }}
               sx={{
                 '& .MuiInputLabel-root': {
@@ -535,17 +781,17 @@ const JoinQuiz = () => {
               {loading ? (
                 <CircularProgress size={24} sx={{ color: 'white' }} />
               ) : (
-                '🚀 Join Game!'
+                '🚀 Oyuna Katıl!'
               )}
             </Button>
           </form>
 
           <Box sx={{ mt: 4, textAlign: 'center' }}>
             <Typography variant="body1" sx={{ color: '#666', mb: 2 }}>
-              Don't have a code?
+              Kodunuz yok mu?
             </Typography>
             <Typography variant="body2" sx={{ color: '#999' }}>
-              Ask your host for the 6-digit game code to join the quiz!
+              Quiz'e katılmak için ev sahibinizden 6 haneli oyun kodunu isteyin!
             </Typography>
           </Box>
         </div>
@@ -570,7 +816,7 @@ const JoinQuiz = () => {
               fontWeight: 500 
             }}
           >
-            {gameInfo?.game?.description || 'Waiting for the host to start the game...'}
+            {gameInfo?.game?.description || 'Ev sahibinin oyunu başlatmasını bekleyin...'}
           </Typography>
 
           <Box sx={{ 
@@ -582,10 +828,10 @@ const JoinQuiz = () => {
             color: 'white'
           }}>
             <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-              Game Code: {gameInfo?.game?.code || joinForm.gameCode}
+              Oyun Kodu: {gameInfo?.game?.code || joinForm.gameCode}
             </Typography>
             <Typography variant="body1" sx={{ opacity: 0.9 }}>
-              Share this code with others to join!
+              Bu kodu başkalarıyla paylaşın!
             </Typography>
           </Box>
 
@@ -597,7 +843,7 @@ const JoinQuiz = () => {
           }}>
             <Chip
               icon={<PersonIcon />}
-              label={`You: ${user?.username || 'Guest'}`}
+              label={`Sen: ${user?.username || 'Misafir'}`}
               sx={{
                 background: 'linear-gradient(45deg, #e91e63, #9c27b0)',
                 color: 'white',
@@ -622,7 +868,7 @@ const JoinQuiz = () => {
               fontWeight: 500,
             }}
           >
-            🎮 Get ready! The quiz will start when the host begins the game.
+            🎮 Hazır ol! Ev sahibi oyunu başlattığında quiz başlayacak.
           </Alert>
 
           <div style={{ 
@@ -640,7 +886,7 @@ const JoinQuiz = () => {
                 mb: 3 
               }}
             >
-              🎊 Players in Lobby ({participants.length})
+              🎊 Lobideki Oyuncular ({participants.length})
             </Typography>
             
             <Grid container spacing={2}>
@@ -693,7 +939,7 @@ const JoinQuiz = () => {
                   fontStyle: 'italic' 
                 }}
               >
-                No other players yet... Share the game code!
+                Henüz başka oyuncu yok... Oyun kodunu paylaşın!
               </Typography>
             )}
           </div>
@@ -715,10 +961,9 @@ const JoinQuiz = () => {
                   transform: 'translateY(-2px)',
                 },
                 boxShadow: '0 4px 15px rgba(244, 67, 54, 0.2)',
-              }}
-            >
-              🚪 Leave Lobby
-            </Button>
+              }}              >
+                🚪 Lobi'den Ayrıl
+              </Button>
           </Box>
         </div>
       </Container>
@@ -726,6 +971,35 @@ const JoinQuiz = () => {
   );
   const renderQuestion = () => {
     if (!currentQuestion) return null;
+
+    // Debug: currentQuestion'daki options'ları console'a yazdır
+    console.log('Debug - Current question options:', currentQuestion.options);
+    console.log('Debug - Selected answer:', selectedAnswer);
+    console.log('Debug - Game status:', gameStatus);
+    console.log('Debug - Time left:', timeLeft);
+    
+    // Debug: Her option'ın detaylarını yazdır
+    if (currentQuestion.options) {
+      currentQuestion.options.forEach((option, idx) => {
+        console.log(`Debug - Option ${idx}:`, {
+          id: option.id,
+          text: option.option_text,
+          is_correct: option.is_correct,
+          raw_option: option
+        });
+      });
+    }
+    
+    // Debug: Seçilen cevabın doğru olup olmadığını kontrol et
+    if (selectedAnswer !== null && currentQuestion.options?.[selectedAnswer]) {
+      const selectedOption = currentQuestion.options[selectedAnswer];
+      console.log('Debug - Selected option details:', {
+        index: selectedAnswer,
+        option: selectedOption,
+        is_correct: selectedOption.is_correct,
+        typeof_is_correct: typeof selectedOption.is_correct
+      });
+    }
 
     return (
       <div className="kahoot-container">
@@ -742,7 +1016,7 @@ const JoinQuiz = () => {
               color: 'white'
             }}>
               <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                Question {questionIndex + 1}
+                Soru {questionIndex + 1}
                 {currentQuestion.total && ` / ${currentQuestion.total}`}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -768,7 +1042,7 @@ const JoinQuiz = () => {
                     }
                   }}
                 >
-                  🚪 Leave
+                  🚪 Ayrıl
                 </Button>
               </Box>
             </Box>
@@ -812,50 +1086,137 @@ const JoinQuiz = () => {
             </Typography>
             
             <Grid container spacing={3}>
-              {currentQuestion.options?.map((option, index) => (
-                <Grid item xs={12} sm={6} key={option.id || index}>
-                  <div
-                    className={`answer-option ${selectedAnswer === index ? 'selected' : ''}`}
-                    onClick={() => handleAnswerSelect(index)}
-                    style={{
-                      pointerEvents: selectedAnswer !== null ? 'none' : 'auto',
-                      opacity: selectedAnswer !== null && selectedAnswer !== index ? 0.6 : 1,
-                      minHeight: '100px',
-                      position: 'relative',
-                    }}
-                  >
-                    <Box sx={{ 
-                      position: 'absolute',
-                      top: '10px',
-                      left: '15px',
-                      background: 'rgba(255,255,255,0.2)',
-                      borderRadius: '50%',
-                      width: '30px',
-                      height: '30px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 'bold',
-                      fontSize: '16px',
-                    }}>
-                      {String.fromCharCode(65 + index)}
-                    </Box>
-                    <Typography 
-                      variant="h6" 
-                      sx={{ 
+              {currentQuestion.options?.map((option, index) => {
+                // Determine the class for reviewing state
+                let optionClass = 'answer-option';
+                if (selectedAnswer === index) {
+                  optionClass += ' selected';
+                }
+                
+                // Add correct/incorrect classes during reviewing OR when timer expires
+                if (gameStatus === 'reviewing' || timeLeft === 0) {
+                  if (option.is_correct) {
+                    optionClass += ' correct-show';
+                  } else if (selectedAnswer === index && !option.is_correct) {
+                    optionClass += ' incorrect';
+                  }
+                }
+                
+                // Determine background color based on state
+                let backgroundColor = 'linear-gradient(45deg, #667eea, #764ba2)';
+                let borderColor = 'rgba(255,255,255,0.3)';
+                
+                // Debug: Her option için detaylı log
+                console.log(`Option ${index} (${option.option_text}):`, {
+                  isCorrect: option.is_correct,
+                  isSelected: selectedAnswer === index,
+                  gameStatus,
+                  timeLeft
+                });
+                
+                if (timeLeft === 0 || gameStatus === 'reviewing') {
+                  if (option.is_correct) {
+                    // Doğru cevap her zaman yeşil
+                    backgroundColor = 'linear-gradient(45deg, #4caf50, #8bc34a)'; // Green for correct
+                    borderColor = '#4caf50';
+                  } else if (selectedAnswer === index && !option.is_correct) {
+                    // Yanlış seçilen cevap kırmızı
+                    backgroundColor = 'linear-gradient(45deg, #f44336, #e91e63)'; // Red for wrong selected
+                    borderColor = '#f44336';
+                  } else {
+                    // Seçilmeyen ve yanlış olan cevaplar gri
+                    backgroundColor = 'linear-gradient(45deg, #9e9e9e, #757575)'; // Gray for unselected
+                    borderColor = '#9e9e9e';
+                  }
+                } else if (selectedAnswer === index) {
+                  backgroundColor = 'linear-gradient(45deg, #ff9800, #ffc107)'; // Orange for selected (during timer)
+                  borderColor = '#ff9800';
+                }
+                
+                return (
+                  <Grid item xs={12} sm={6} key={option.id || index}>
+                    <div
+                      className={optionClass}
+                      onClick={() => handleAnswerSelect(index)}
+                      style={{
+                        pointerEvents: selectedAnswer !== null || timeLeft === 0 ? 'none' : 'auto',
+                        opacity: (selectedAnswer !== null && selectedAnswer !== index && timeLeft > 0) ? 0.6 : 1,
+                        minHeight: '120px',
+                        position: 'relative',
+                        background: backgroundColor,
+                        border: `3px solid ${borderColor}`,
+                        borderRadius: '20px',
+                        cursor: selectedAnswer !== null || timeLeft === 0 ? 'default' : 'pointer',
+                        transition: 'all 0.3s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
                         fontWeight: 'bold',
-                        textAlign: 'center',
-                        mt: 1
+                        boxShadow: timeLeft === 0 || gameStatus === 'reviewing' 
+                          ? option.is_correct 
+                            ? '0 0 20px rgba(76, 175, 80, 0.6)' 
+                            : selectedAnswer === index && !option.is_correct
+                              ? '0 0 20px rgba(244, 67, 54, 0.6)'
+                              : '0 4px 15px rgba(0,0,0,0.2)'
+                          : selectedAnswer === index
+                            ? '0 0 20px rgba(255, 152, 0, 0.6)'
+                            : '0 4px 15px rgba(102, 126, 234, 0.4)',
+                        transform: selectedAnswer === index ? 'scale(1.02)' : 'scale(1)',
                       }}
                     >
-                      {option.option_text}
-                    </Typography>
-                  </div>
-                </Grid>
-              ))}
+                      <Box sx={{ 
+                        position: 'absolute',
+                        top: '15px',
+                        left: '20px',
+                        background: 'rgba(255,255,255,0.2)',
+                        borderRadius: '50%',
+                        width: '35px',
+                        height: '35px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 'bold',
+                        fontSize: '18px',
+                        color: 'white',
+                        border: '2px solid rgba(255,255,255,0.4)',
+                      }}>
+                        {String.fromCharCode(65 + index)}
+                      </Box>
+                      
+                      {/* Show correct/wrong icons when timer expires */}
+                      {(timeLeft === 0 || gameStatus === 'reviewing') && (
+                        <Box sx={{
+                          position: 'absolute',
+                          top: '15px',
+                          right: '20px',
+                          fontSize: '24px',
+                          fontWeight: 'bold',
+                        }}>
+                          {option.is_correct ? '✅' : selectedAnswer === index && !option.is_correct ? '❌' : ''}
+                        </Box>
+                      )}
+                      
+                      <Typography 
+                        variant="h6" 
+                        sx={{ 
+                          fontWeight: 'bold',
+                          textAlign: 'center',
+                          color: 'white',
+                          fontSize: '18px',
+                          lineHeight: 1.3,
+                          px: 3,
+                        }}
+                      >
+                        {option.option_text}
+                      </Typography>
+                    </div>
+                  </Grid>
+                );
+              })}
             </Grid>
             
-            {selectedAnswer !== null && (
+            {selectedAnswer !== null && timeLeft > 0 && gameStatus !== 'reviewing' && (
               <Alert 
                 severity="success" 
                 sx={{ 
@@ -867,23 +1228,32 @@ const JoinQuiz = () => {
                   fontWeight: 'bold',
                 }}
               >
-                ✅ Answer submitted! Waiting for other players...
+                ✅ Cevap gönderildi! Diğer oyuncular bekleniyor...
               </Alert>
             )}
             
-            {gameStatus === 'reviewing' && (
+            {(gameStatus === 'reviewing' || timeLeft === 0) && (
               <Alert 
-                severity="info" 
+                severity={selectedAnswer !== null && currentQuestion.options?.[selectedAnswer]?.is_correct ? "success" : "info"}
                 sx={{ 
                   mt: 4,
                   borderRadius: '15px',
-                  background: 'linear-gradient(45deg, #e3f2fd, #bbdefb)',
-                  border: '2px solid #2196f3',
+                  background: selectedAnswer !== null && currentQuestion.options?.[selectedAnswer]?.is_correct 
+                    ? 'linear-gradient(45deg, #e8f5e8, #c8e6c9)'
+                    : 'linear-gradient(45deg, #e3f2fd, #bbdefb)',
+                  border: selectedAnswer !== null && currentQuestion.options?.[selectedAnswer]?.is_correct 
+                    ? '2px solid #4caf50'
+                    : '2px solid #2196f3',
                   fontSize: '16px',
                   fontWeight: 'bold',
                 }}
               >
-                📊 Showing correct answer, moving to next question...
+                {selectedAnswer !== null && currentQuestion.options?.[selectedAnswer]?.is_correct 
+                  ? '🎉 Doğru! Tebrikler!' 
+                  : selectedAnswer !== null 
+                    ? '❌ Yanlış cevap. Doğru cevap yeşil ile vurgulanmıştır.'
+                    : '⏰ Süre doldu! Doğru cevap yeşil ile vurgulanmıştır.'
+                }
               </Alert>
             )}
           </div>
@@ -927,7 +1297,7 @@ const JoinQuiz = () => {
               {score}
             </Typography>
             <Typography variant="h5" sx={{ opacity: 0.9 }}>
-              Your Final Score
+              Final Puanınız
             </Typography>
           </Box>
 
@@ -947,7 +1317,7 @@ const JoinQuiz = () => {
                   mb: 3
                 }}
               >
-                🏅 Final Leaderboard
+                🏅 Final Skor Tablosu
               </Typography>
               <List sx={{ width: '100%' }}>
                 {results.leaderboard.map((player, index) => (
