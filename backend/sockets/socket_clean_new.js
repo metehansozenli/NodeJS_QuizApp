@@ -17,11 +17,21 @@ function publishSessionState(io, sessionId) {
       incorrect: answers.filter(a => !a.correct).length
     };
     
-    io.to(sessionId).emit('sessionStateUpdate', {
+    const stateData = {
       ...state,
       sessionId,
-      answerStats
+      answerStats,
+      timestamp: new Date().toISOString()
+    };
+    
+    console.log('📡 Publishing sessionStateUpdate:', {
+      sessionId,
+      phase: state.phase,
+      participantsCount: state.participants?.length,
+      timestamp: stateData.timestamp
     });
+    
+    io.to(sessionId).emit('sessionStateUpdate', stateData);
   }
 }
 
@@ -247,21 +257,35 @@ module.exports = (io) => {
           totalQuestions: quizData.questions.length
         });        // Send background music event - use default if none specified, but only to players (not host)
         const backgroundMusicUrl = quizData.background_music_url || '/assets/soundEffects/background-music-224633.mp3';
-        
-        // Send background music only to players, not to host
+          // Send background music only to players, not to host
         const room = io.sockets.adapter.rooms.get(sessionId);
+        console.log('🎵 DEBUG: Room participants for background music:', room ? room.size : 'No room found');
+        
         if (room) {
           room.forEach(socketId => {
             const socket = io.sockets.sockets.get(socketId);
+            console.log('🎵 DEBUG: Checking socket:', {
+              socketId,
+              isHost: socket?.isHost,
+              username: socket?.username,
+              hasSocket: !!socket
+            });
+            
             if (socket && !socket.isHost && socket.username !== 'Host') {
-              console.log('Sending background music to player:', socket.username);
+              console.log('🎵 Sending background music to player:', socket.username);
               socket.emit('playBackgroundMusic', {
                 sessionId: sessionId,
                 url: backgroundMusicUrl,
                 volume: 0.3
               });
+              console.log('🎵 Background music event sent to:', socket.username, 'with URL:', backgroundMusicUrl);
             } else if (socket && socket.isHost) {
-              console.log('Skipping background music for host:', socket.username);
+              console.log('🎵 Skipping background music for host:', socket.username);
+            } else {              console.log('🎵 Skipping socket - no valid player:', {
+                hasSocket: !!socket,
+                isHost: socket?.isHost,
+                username: socket?.username
+              });
             }
           });
         }
@@ -323,12 +347,19 @@ module.exports = (io) => {
       const { sessionId, question } = data;
       console.log('❓ SHOW QUESTION EVENT RECEIVED:', { sessionId, questionText: question?.question_text });
       if (!activeSessions[sessionId]) return;
-      const state = activeSessions[sessionId];
-      state.activeQuestion = question;
+      const state = activeSessions[sessionId];      state.activeQuestion = question;
       state.questionStartTime = Date.now();
       state.questionDuration = question.duration_seconds || 30;
       state.answers = {};
       state.currentQuestionIndex = question.index - 1;
+      
+      console.log('❓ Question details:', {
+        id: question.id,
+        text: question.question_text,
+        points: question.points,
+        duration: question.duration_seconds
+      });
+      
       setPhase(io, sessionId, 'question');
         // Send question to host with correct answers
       const hostSockets = [...io.sockets.sockets.values()].filter(s => s.isHost && s.sessionId === sessionId);
@@ -375,7 +406,8 @@ module.exports = (io) => {
       const state = activeSessions[sessionId];
       if (!state) return;
       
-      setPhase(io, sessionId, 'showingAnswer');
+      console.log(`🔍 Showing correct answer for session: ${sessionId}`);
+      setPhase(io, sessionId, 'reviewing');
       
       // Use the active question from state to ensure we have complete data including is_correct
       const completeQuestion = state.activeQuestion || question;
@@ -616,22 +648,45 @@ module.exports = (io) => {
       // Find participant username
       const participant = state.participants.find(p => p.userId === userId);
       const username = participant ? participant.username : 'Unknown';
-      
-      // PUAN HESABI
-      let pointsEarned = 0;
-      if (isCorrect) {
+        // PUAN HESABI
+      let pointsEarned = 0;      if (isCorrect) {
         // Temel puan (soruya özgü)
         const basePoints = state.activeQuestion?.points || 10;
-        pointsEarned += basePoints;
-        // Hız bonusu (maks 5 puan)
+        
+        console.log('🎯 Question data for scoring:', {
+          questionId: state.activeQuestion?.id,
+          questionPoints: state.activeQuestion?.points,
+          basePointsUsed: basePoints,
+          activeQuestionObject: state.activeQuestion
+        });
+          // Hız bonusu hesaplama - maksimum basePoints'in %30'u kadar
         const responseTimeSec = (now - state.questionStartTime) / 1000;
-        const timeBonus = Math.max(0, 5 - Math.floor(responseTimeSec));
-        pointsEarned += timeBonus;
+        const maxTimeBonus = Math.floor(basePoints * 0.3); // Temel puanın %30'u
+        
+        // Zaman bonusu - hızlı cevap verenler daha çok bonus alır
+        // Eğer responseTime >= questionDuration ise bonus 0
+        let timeBonus = 0;
+        if (responseTimeSec < state.questionDuration) {
+          const timeRatio = responseTimeSec / state.questionDuration; // 0-1 arası
+          timeBonus = Math.floor(maxTimeBonus * (1 - timeRatio)); // Hızlı cevap = yüksek bonus
+        }
+        
+        pointsEarned = basePoints + timeBonus;
+        
+        console.log(`Score calculation for ${username}: base=${basePoints}, timeBonus=${timeBonus}, total=${pointsEarned}, responseTime=${responseTimeSec}s, maxTime=${state.questionDuration}s`);
       }
-
+      
       if (participant) {
         participant.score = (participant.score || 0) + pointsEarned;
-      }      state.answers[userId] = { 
+        
+        // Veritabanındaki participant score'unu güncelle
+        db.query(
+          'UPDATE participants SET score = $1 WHERE session_id = $2 AND user_id = $3',
+          [participant.score, sessionId, userId]
+        ).catch(err => {
+          console.error('Error updating participant score in database:', err);
+        });
+      }state.answers[userId] = { 
         answer, 
         optionId,
         correct: isCorrect,

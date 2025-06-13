@@ -10,6 +10,11 @@ router.get('/session/:sessionId/detail', quizHistoryController.getSessionHistory
 router.get('/quiz/:quizId', quizHistoryController.getQuizHistoryByQuiz);
 router.get('/session/:sessionId', quizHistoryController.getQuizHistoryDetail);
 
+// Admin/maintenance routes
+router.get('/compare/:sessionId', quizHistoryController.compareScores);
+router.post('/rebuild/:sessionId', quizHistoryController.rebuildQuizHistory);
+router.post('/rebuild-all', quizHistoryController.rebuildAllQuizHistory);
+
 // Generic fallback (by userId)
 router.get('/:userId', quizHistoryController.getQuizHistory);
 

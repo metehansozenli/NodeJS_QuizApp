@@ -88,7 +88,8 @@ CREATE TABLE quiz_history (
     quiz_id INTEGER REFERENCES quizzes(id) ON DELETE CASCADE,
     session_id UUID REFERENCES live_sessions(id) ON DELETE CASCADE,
     score INTEGER DEFAULT 0,
-    played_at DATE DEFAULT CURRENT_DATE
+    played_at DATE DEFAULT CURRENT_DATE,
+    UNIQUE(user_id, session_id) -- Aynı kullanıcı aynı sessionda sadece bir kez olabilir
 );
 
 -- Create indexes for better performance

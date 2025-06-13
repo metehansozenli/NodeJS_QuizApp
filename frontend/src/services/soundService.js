@@ -145,10 +145,57 @@ class SoundService {
 
   // Tüm sesleri durdur
   stopAllSounds() {
-    Object.values(this.sounds).forEach(sound => {
-      sound.pause();
-      sound.currentTime = 0;
-    });
+    try {
+      Object.values(this.sounds).forEach(sound => {
+        if (sound) {
+          sound.pause();
+          sound.currentTime = 0;
+          // Ses nesnesini sıfırla
+          sound.src = '';
+        }
+      });
+      console.log('🔇 All sounds stopped successfully');
+    } catch (error) {
+      console.error('❌ Error stopping sounds:', error);
+    }
+  }
+
+  // Sonuç ekranı için ses kontrolü
+  handleResultsScreen() {
+    try {
+      // Tüm sesleri durdur
+      Object.values(this.sounds).forEach(sound => {
+        if (sound && sound !== this.sounds.background) {
+          sound.pause();
+          sound.currentTime = 0;
+        }
+      });
+
+      // Arka plan müziğini düşük sesle çal
+      if (this.sounds.background) {
+        this.sounds.background.volume = 0.2;
+        if (this.sounds.background.paused) {
+          this.sounds.background.play().catch(error => {
+            console.log('Arka plan müziği başlatılamadı:', error);
+          });
+        }
+      }
+      console.log('🎵 Results screen sound control applied');
+    } catch (error) {
+      console.error('❌ Error in handleResultsScreen:', error);
+    }
+  }
+
+  // Yeni oyuna başlarken tüm sesleri temizle
+  resetForNewGame() {
+    try {
+      this.stopAllSounds();
+      this.sounds.background.pause();
+      this.sounds.background.currentTime = 0;
+      console.log('🔄 Sound system reset for new game');
+    } catch (error) {
+      console.error('❌ Error resetting sounds for new game:', error);
+    }
   }
 }
 

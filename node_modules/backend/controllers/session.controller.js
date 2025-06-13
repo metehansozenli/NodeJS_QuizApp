@@ -53,28 +53,55 @@ exports.startSession = async (req, res) => {
 exports.endSession = async (req, res) => {
   try {
     const sessionId = req.body?.sessionId || req.params?.sessionId;
+    
+    console.log(`🛑 Attempting to end session: ${sessionId}`);
+    
+    // Önce session durumunu kontrol et - zaten ENDED ise duplicate call
+    const checkResult = await db.query('SELECT status FROM live_sessions WHERE id = $1', [sessionId]);
+    
+    if (checkResult.rowCount === 0) {
+      console.log(`❌ Session ${sessionId} not found`);
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    
+    if (checkResult.rows[0].status === 'ENDED') {
+      console.log(`⚠️ Session ${sessionId} already ended, skipping duplicate endSession call`);
+      return res.json({ 
+        success: true, 
+        message: 'Session already ended',
+        alreadyEnded: true
+      });
+    }
+    
     const ended_at = new Date().toISOString().split('T')[0]; // DATE format
 
     const result = await db.query(
-      'UPDATE live_sessions SET status = $1, ended_at = $2 WHERE id = $3 RETURNING *',
+      'UPDATE live_sessions SET status = $1, ended_at = $2 WHERE id = $3 AND status != $1 RETURNING *',
       ['ENDED', ended_at, sessionId]
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Session not found' });
+      console.log(`⚠️ Session ${sessionId} was already ended by another process`);
+      return res.json({ 
+        success: true, 
+        message: 'Session already ended by another process',
+        alreadyEnded: true
+      });
     }
+
+    console.log(`✅ Session ${sessionId} successfully marked as ENDED`);
 
     // Participants'ları da ended durumuna getir
     await db.query(
       'UPDATE participants SET status = $1, ended_at = $2 WHERE session_id = $3',
       [false, ended_at, sessionId]
-    );
-
-    // Save history for all participants
+    );    // Save history for all participants
+    console.log(`📚 About to save session results to quiz_history for session: ${sessionId}`);
     try {
       await quizHistoryController.saveSessionResults(sessionId);
+      console.log(`✅ Successfully completed saveSessionResults for session: ${sessionId}`);
     } catch(historyErr){
-      console.error('Failed to save session results to history', historyErr);
+      console.error(`❌ Failed to save session results to history for session ${sessionId}:`, historyErr);
     }
 
     res.json({ 

@@ -824,10 +824,9 @@ const HostSession = () => {
                       <Avatar sx={{ bgcolor: 'primary.main' }}>
                         <PersonIcon />
                       </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
+                    </ListItemAvatar>                    <ListItemText
                       primary={participant.username}
-                      secondary={`Katıldı: ${new Date(participant.joined_at).toLocaleTimeString()}`}
+                      secondary={`Puan: ${participant.score || 0} - Katıldı: ${new Date(participant.joined_at).toLocaleTimeString()}`}
                     />
                     <IconButton
                       color="error"

@@ -52,13 +52,11 @@ const JoinQuiz = () => {
   const [timer, setTimer] = useState(null);
   const [score, setScore] = useState(0);
   const [questionIndex, setQuestionIndex] = useState(null);
-  const [sessionId, setSessionId] = useState(null);
-  const [gameStatus, setGameStatus] = useState('joining');
-  const [bgMusicUrl, setBgMusicUrl] = useState(null);
-  const [showAnswersAfterTimer, setShowAnswersAfterTimer] = useState(false);
-  const audioRef = useRef(null);
+  const [sessionId, setSessionId] = useState(null);  const [gameStatus, setGameStatus] = useState('joining');
+  const [showAnswersAfterTimer, setShowAnswersAfterTimer] = useState(false);  const [timerSoundPlayed, setTimerSoundPlayed] = useState(false);
   const currentQuestionRef = useRef(null);
   const selectedAnswerRef = useRef(null);
+  const participantsRef = useRef([]);
 
   // Ses yönetimi için state
   const [sounds, setSounds] = useState({
@@ -69,12 +67,12 @@ const JoinQuiz = () => {
     wrongAnswerSound: null,
     gameWinSound: null,
     gameLoseSound: null
-  });
-
-  // Score display modal state
+  });  // Score display modal state  // Score display modal state
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoreModalData, setScoreModalData] = useState(null);
-
+  const [userAnswerResult, setUserAnswerResult] = useState(null);
+  const [backgroundMusic, setBackgroundMusic] = useState(null);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   // Ses çalma fonksiyonu
   const playSound = (type, volume = 0.5) => {
     try {
@@ -114,6 +112,13 @@ const JoinQuiz = () => {
           sounds.backgroundMusic.pause();
         }
         setSounds(prev => ({ ...prev, backgroundMusic: sound }));
+      } else if (type === 'timer') {
+        // Timer ses efekti için eski ses varsa durdur
+        if (sounds.timerSound) {
+          sounds.timerSound.pause();
+          sounds.timerSound.currentTime = 0;
+        }
+        setSounds(prev => ({ ...prev, timerSound: sound }));
       }
       
       sound.play();
@@ -127,18 +132,89 @@ const JoinQuiz = () => {
     try {
       if (sounds[type]) {
         sounds[type].pause();
-        sounds[type].currentTime = 0;
+        sounds.timerSound.currentTime = 0;
       }
     } catch (error) {
       console.error(`Error stopping ${type} sound:`, error);
     }
+  };  // Tüm sesleri durdur
+  const stopAllSounds = () => {
+    try {
+      // State'teki sesleri durdur
+      Object.keys(sounds).forEach(type => {
+        if (type !== 'backgroundMusic') { // backgroundMusic hariç
+          stopSound(type);
+        }
+      });
+      
+      // Background müziği de durdur
+      stopBackgroundMusic();
+      
+      // Sayfadaki tüm audio elementlerini durdur (ekstra güvenlik)
+      const audioElements = document.querySelectorAll('audio');
+      audioElements.forEach(audio => {
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+        } catch (e) {
+          console.warn('Could not stop audio element:', e);
+        }
+      });
+      
+      // Timer'ı da durdur
+      if (timer) {
+        clearInterval(timer);
+        setTimer(null);
+      }
+      
+      console.log('🔇 All sounds stopped completely');
+    } catch (error) {
+      console.error('❌ Error in stopAllSounds:', error);
+    }
   };
 
-  // Tüm sesleri durdur
-  const stopAllSounds = () => {
-    Object.keys(sounds).forEach(type => {
-      stopSound(type);
-    });
+  // Background müzik kontrol fonksiyonları
+  const startBackgroundMusic = () => {
+    if (!backgroundMusic) {
+      const audio = new Audio('/assets/soundEffects/background-music-224633.mp3');
+      audio.loop = true;
+      audio.volume = 0.3;
+      setBackgroundMusic(audio);
+      
+      audio.play().then(() => {
+        setIsMusicPlaying(true);
+        console.log('🎵 Background music started');
+      }).catch(error => {
+        console.error('Error starting background music:', error);
+      });
+    } else if (!isMusicPlaying) {
+      backgroundMusic.play().then(() => {
+        setIsMusicPlaying(true);
+        console.log('🎵 Background music resumed');
+      }).catch(error => {
+        console.error('Error resuming background music:', error);
+      });
+    }
+  };
+  const stopBackgroundMusic = () => {
+    try {
+      if (backgroundMusic) {
+        backgroundMusic.pause();
+        backgroundMusic.currentTime = 0; // Başa sar
+        setIsMusicPlaying(false);
+        console.log('🔇 Background music stopped completely');
+      }
+    } catch (error) {
+      console.error('❌ Error stopping background music:', error);
+    }
+  };
+
+  const toggleBackgroundMusic = () => {
+    if (isMusicPlaying) {
+      stopBackgroundMusic();
+    } else {
+      startBackgroundMusic();
+    }
   };
 
   useEffect(() => {
@@ -160,29 +236,56 @@ const JoinQuiz = () => {
     if(gameCode && joinForm.gameCode===gameCode && !sessionId && gameState==='joining' && !loading){
       handleJoinGame();
     }
-  },[gameCode,joinForm.gameCode,sessionId,gameState,loading]);
-
-  // Socket listeners - only when sessionId is set
+  },[gameCode,joinForm.gameCode,sessionId,gameState,loading]);  // Socket listeners - only when sessionId is set
   useEffect(() => {
-    if (!sessionId) return; // Only setup listeners when we have a sessionId
+    if (!sessionId || !user?.username) return; // Only setup listeners when we have both sessionId and user
 
-    console.log('Setting up socket listeners for sessionId:', sessionId);
+    console.log('🔧 Setting up socket listeners for sessionId:', sessionId);
     
     // Ensure socket is connected
     socketService.connect();
-    console.log('Socket connection status:', socketService.socket?.connected);
+    console.log('🔌 Socket connection status:', socketService.socket?.connected);
 
-    // Listen for session state updates
+    // Clean up function to remove all listeners
+    const cleanup = () => {
+      console.log('🧹 Cleaning up socket listeners');
+      socketService.off('sessionStateUpdate');
+      socketService.off('userJoined');
+      socketService.off('userLeft');
+      socketService.off('showQuestion');
+      socketService.off('answerSubmitted');
+      socketService.off('showCorrectAnswer');
+      socketService.off('sessionEnded');
+      socketService.off('gameStarted');
+      socketService.off('removeParticipant');
+      socketService.off('quizCompleted');
+      socketService.off('showFinalLeaderboard');
+      socketService.off('playBackgroundMusic');
+      socketService.off('playMusic');
+      socketService.off('playSound');
+      socketService.off('gameFinished');
+      socketService.off('finishGame');
+    };
+
+    // Clean up first to prevent duplicates
+    cleanup();// Listen for session state updates
     socketService.on('sessionStateUpdate', (data) => {
-      console.log('sessionStateUpdate received:', data);
-      if (data.sessionId === sessionId) {
-        setGameStatus(data.status);
-        setParticipants(data.participants);
+      console.log('🚀 sessionStateUpdate received:', {
+        sessionId: data.sessionId,
+        phase: data.phase,
+        participantsCount: data.participants?.length,
+        timestamp: new Date().toISOString(),
+        fullData: data
+      });
+        if (data.sessionId === sessionId) {
+        setGameStatus(data.status);        setParticipants(data.participants);
+        participantsRef.current = data.participants; // Ref'i de güncelle
         if (data.background_music_url) {
-          setBgMusicUrl(data.background_music_url);
+          // Background music URL removed
         } else if (data.session?.background_music_url) {
-          setBgMusicUrl(data.session.background_music_url);
+          // Background music URL removed  
         }
+
         // Update user's own score easily
         if (data.participants && user?.username) {
           const currentUser = data.participants.find(p => 
@@ -191,6 +294,55 @@ const JoinQuiz = () => {
           if (currentUser && currentUser.score !== undefined) {
             setScore(currentUser.score);
           }
+        }
+
+        // Score modal'ı göster eğer phase 'reviewing' - state kontrolü olmadan zorla
+        console.log('🔍 Checking score modal conditions:', {
+          phase: data.phase,
+          participantsLength: data.participants?.length,
+          hasParticipants: data.participants && data.participants.length > 0,
+          sessionMatches: data.sessionId === sessionId
+        });
+        
+        if (data.phase === 'reviewing' && data.participants && data.participants.length > 0) {
+          console.log('✅ FORCING score modal open from sessionStateUpdate:', data.participants);
+          
+          const playerParticipants = data.participants.filter(p => p.username !== 'Host');
+          const sortedParticipants = playerParticipants.sort((a, b) => (b.score || 0) - (a.score || 0));
+          
+          console.log('📊 Score modal participants:', {
+            allParticipants: data.participants,
+            playerParticipants,
+            sortedParticipants
+          });
+          
+          // Kullanıcının güncel puanını participants listesinden al
+          const currentUser = data.participants.find(p => 
+            p.username === (user?.username || 'Misafir') || p.userId === user?.id
+          );
+          const currentUserScore = currentUser ? currentUser.score : score;
+          
+          const modalData = {
+            participants: sortedParticipants,
+            userScore: currentUserScore,
+            currentUser: user?.username || 'Misafir'
+          };
+          
+          console.log('🎯 Setting score modal data:', modalData);
+          
+          // FORCE modal to open by setting both data and show state simultaneously
+          setScoreModalData(modalData);
+          setShowScoreModal(true);
+          
+          console.log('🚀 SCORE MODAL FORCED OPEN!');
+
+          // Hide score modal after 5 seconds
+          setTimeout(() => {
+            console.log('⏰ Auto-closing score modal after 5 seconds');
+            setShowScoreModal(false);
+          }, 5000);
+        } else {
+          console.log('❌ Score modal NOT opened - phase:', data.phase, 'participants:', data.participants?.length);
         }
 
         // Eğer aktif soru yayınlanıyorsa ve henüz bir soru görünmüyorsa ayarla
@@ -253,40 +405,15 @@ const JoinQuiz = () => {
       if (data.sessionId === sessionId) {
         // Remove participant from the list
         setParticipants(prev => prev.filter(p => p.username !== data.username));
-      }
-    });
-
-    // Listen for session state update
-    socketService.on('sessionStateUpdate', (data) => {
-      console.log('Session state update received:', data);
-      if (data.sessionId === sessionId) {
-        // Update participants
-        if (data.participants) {
-          // Filter out host from participants list for players
-          const playerParticipants = data.participants.filter(p => p.username !== 'Host');
-          console.log('Updating participants to:', playerParticipants);
-          setParticipants(playerParticipants);
-          
-          // Update current user's score
-          const currentUser = data.participants.find(p => 
-            p.username === (user?.username || 'Misafir') || p.userId === user?.id
-          );
-          if (currentUser && currentUser.score !== undefined) {
-            console.log('Updating user score to:', currentUser.score);
-            setScore(currentUser.score);
-          }
-        }
-        
-        // Update leaderboard
-        if (data.leaderboard) {
-          setResults(prev => ({ ...prev, leaderboard: data.leaderboard }));
-        }
-      }
-    });
+      }    });
 
     // Listen for question updates
     socketService.on('showQuestion', (data) => {
       console.log('Show question event received:', data);
+      
+      // Önce mevcut timer'ı ve sesini durdur (koşul kontrolünden önce)
+      stopTimer();
+      
       if (data.sessionId === sessionId && data.question) {
         const playerQuestion = {
           ...data.question,
@@ -297,25 +424,52 @@ const JoinQuiz = () => {
           }))
         };
         
-        console.log('Processed question options:', playerQuestion.options); // Debug log
-        
-        setCurrentQuestion(playerQuestion);
+        console.log('Processed question options:', playerQuestion.options); // Debug log        setCurrentQuestion(playerQuestion);
         setQuestionIndex(data.question.index - 1 || 0);
         setGameState('question');
-        setGameStatus('question');
-        setSelectedAnswer(null);
+        setGameStatus('question');        setSelectedAnswer(null);
+        setUserAnswerResult(null); // Yeni soru için cevap sonucunu temizle
         setShowAnswersAfterTimer(false); // Yeni soru geldiğinde cevap gösterimini resetle
+        setTimerSoundPlayed(false); // Timer ses flag'ini resetle
+        setShowScoreModal(false); // Score modal'ını kapat
         setTimeLeft(data.question.duration_seconds || 30);
         startTimer();
+      }    });    
+    
+    // Listen for answer submission result
+    socketService.on('answerSubmitted', (data) => {
+      console.log('Answer submitted event received:', data);
+      
+      if (data.sessionId === sessionId) {
+        // Kullanıcının kendi cevabı mı kontrol et
+        const currentUserId = user?.id || gameInfo?.participant?.user_id || gameInfo?.participant?.id;
+        const currentUsername = user?.username || localStorage.getItem('playerUsername') || 'Misafir';
+        
+        if (data.userId === currentUserId || data.username === currentUsername) {
+          console.log('This is our answer result:', {
+            isCorrect: data.isCorrect,
+            userId: data.userId,
+            username: data.username
+          });
+          
+          // Kullanıcının cevabının doğru/yanlış bilgisini sakla
+          setUserAnswerResult({
+            isCorrect: data.isCorrect,
+            timestamp: Date.now()
+          });
+        }
       }
     });
-
+    
     // Listen for correct answer
     socketService.on('showCorrectAnswer', (data) => {
       console.log('Show correct answer event received:', data);
       console.log('Debug - showCorrectAnswer data.question.options:', data.question?.options);
       
       if (data.sessionId === sessionId) {
+        // Timer'ı durdur çünkü cevap gösterimi başlıyor
+        stopTimer();
+        
         if (data.question) {
           // Update question with correct answer information
           const updatedQuestion = {
@@ -326,27 +480,96 @@ const JoinQuiz = () => {
               is_correct: opt.is_correct
             }))
           };
-          
-          console.log('Debug - Updated question options:', updatedQuestion.options);
           setCurrentQuestion(updatedQuestion);
         }
-        setGameState('reviewing');
-        setGameStatus('reviewing');
-        
-        // Timer dolduğunda kullanıcının cevabına göre ses efekti çal
-        const currentSelectedAnswer = selectedAnswerRef.current;
-        const currentQuestionData = currentQuestionRef.current;
-        
-        if (currentSelectedAnswer !== null && currentQuestionData?.options?.[currentSelectedAnswer]) {
-          const isCorrect = currentQuestionData.options[currentSelectedAnswer].is_correct;
-          console.log('Playing sound effect for answer:', { selectedAnswer: currentSelectedAnswer, isCorrect });
+
+                // Timer 0'a ulaştığında kullanıcının cevabına göre ses efekti çal
+          const currentSelectedAnswer = selectedAnswerRef.current;
           
-          if (isCorrect) {
-            playSound('correct-answer');
+          // Eğer kullanıcı cevap verdiyse ses efekti çal
+          if (currentSelectedAnswer !== null && userAnswerResult) {
+            const isCorrect = userAnswerResult.isCorrect;
+            console.log('Playing sound effect on timer expiry:', { 
+              selectedAnswer: currentSelectedAnswer, 
+              isCorrect,
+              userAnswerResult 
+            });
+            
+            setTimeout(() => {
+              try {
+                if (isCorrect) {
+                  playSound('correct-answer');
+                } else {
+                  playSound('wrong-answer');
+                }
+                console.log('✅ Sound effect played successfully on timer expiry');
+              } catch (error) {
+                console.error('❌ Sound effect play error on timer expiry:', error);
+              }
+            }, 500); // 500ms gecikme ile ses efekti çal
           } else {
-            playSound('wrong-answer');
+            console.log('❌ No sound effect played on timer expiry:', {
+              selectedAnswer: currentSelectedAnswer,
+              hasUserAnswerResult: !!userAnswerResult,
+              userAnswerResult
+            });
           }
-        }
+            // TIMER BİTİMİNDE SCORE MODAL AÇMA
+          console.log('🚀 Timer expired - Opening score modal');
+          console.log('🔍 Current states:', {
+            participants: participants,
+            participantsLength: participants?.length,
+            participantsRef: participantsRef.current,
+            participantsRefLength: participantsRef.current?.length,
+            showScoreModal: showScoreModal,
+            scoreModalData: scoreModalData,
+            user: user?.username || 'Misafir'
+          });
+          
+          setTimeout(() => {
+            const currentParticipants = participantsRef.current || participants;
+            if (currentParticipants && currentParticipants.length > 0) {
+              console.log('✅ Opening score modal on timer expiry:', currentParticipants);
+              
+              const playerParticipants = currentParticipants.filter(p => p.username !== 'Host');
+              const sortedParticipants = playerParticipants.sort((a, b) => (b.score || 0) - (a.score || 0));
+              
+              const currentUser = currentParticipants.find(p => 
+                p.username === (user?.username || 'Misafir') || p.userId === user?.id
+              );
+              const currentUserScore = currentUser ? currentUser.score : score;
+              
+              const modalData = {
+                participants: sortedParticipants,
+                userScore: currentUserScore,
+                currentUser: user?.username || 'Misafir'
+              };
+              
+              console.log('🎯 Setting score modal data:', modalData);
+              setScoreModalData(modalData);
+              setShowScoreModal(true);
+              console.log('🚀 Score modal state set to TRUE on timer expiry!');
+
+              // Hide score modal after 5 seconds
+              setTimeout(() => {
+                setShowScoreModal(false);
+                console.log('⏰ Score modal auto-closed after 5 seconds');
+              }, 5000);            } else {
+              console.log('❌ Score modal not opened - no participants on timer expiry');
+              console.log('❌ Participants state:', participants);
+              console.log('❌ Participants ref:', participantsRef.current);
+            }
+          }, 1000); // 1 saniye sonra modal aç
+            if (currentSelectedAnswer === null) {
+            // Kullanıcı cevap vermemişse bir işlem yap
+            console.log('No answer selected, timer expired');
+            handleAnswerSelect(-1);
+          } else {
+            console.log('Timer expired with answer:', currentSelectedAnswer);
+          }
+
+        // setGameState('reviewing');
+        // setGameStatus('reviewing');
       }
     });
 
@@ -356,15 +579,16 @@ const JoinQuiz = () => {
       if (data.sessionId === sessionId) {
         handleLeaveSession();
       }
-    });
-
-    // Listen for game started
+    });    // Listen for game started
     socketService.on('gameStarted', (data) => {
       console.log('Game started event received:', data);
       if (data.sessionId === sessionId) {
         setGameState('active');
         setGameStatus('active');
         soundService.playBackgroundMusic();
+        
+        // Background müziği başlat
+        startBackgroundMusic();
       }
     });
 
@@ -375,15 +599,17 @@ const JoinQuiz = () => {
         // Player was kicked, leave session
         handleLeaveSession();
       }
-    });
-
-    // Listen for quiz completion
+    });    // Listen for quiz completion
     socketService.on('quizCompleted', (data) => {
       console.log('Quiz completed event received:', data);
       if (data.sessionId === sessionId) {
         soundService.stopBackgroundMusic();
         setGameState('finished');
         setGameStatus('finished');
+        
+        // Background müziği durdur
+        stopBackgroundMusic();
+        
         if (data.finalLeaderboard) {
           setResults({ leaderboard: data.finalLeaderboard });
         }
@@ -397,28 +623,28 @@ const JoinQuiz = () => {
           }
         }
       }
-    });
-
-    // Listen for final leaderboard
+    });    // Listen for final leaderboard
     socketService.on('showFinalLeaderboard', (data) => {
       console.log('Final leaderboard received:', data);
       if (data.sessionId === sessionId) {
+        // Sonuç tablosu gösterilmeye başladığında müziği durdur
+        console.log('🔇 Stopping background music for final leaderboard');
+        stopBackgroundMusic();
+        
         setResults({ leaderboard: data.leaderboard });
-      }
-    });
-
-    // Listen for background music
+      }    });// Listen for background music
     socketService.on('playBackgroundMusic', (data) => {
-      console.log('Background music event received:', data);
-      if (data.sessionId === sessionId) {
-        try {
-          const bgMusic = new Audio(data.url);
-          bgMusic.loop = true;
-          bgMusic.volume = data.volume || 0.3;
-          bgMusic.play();
-        } catch (error) {
-          console.error('Error playing background music:', error);
-        }
+      console.log('🎵 Background music event received:', data);
+      console.log('🎵 Current sessionId:', sessionId);
+      console.log('🎵 Event sessionId:', data.sessionId);
+      console.log('🎵 URL:', data.url);
+        if (data.sessionId === sessionId) {
+        // Socket event sadece bgMusicUrl state'ini güncellesin
+        // Gerçek oynatma işini mevcut YouTube sistemi (useEffect) halletsin
+        console.log('🎵 Setting bgMusicUrl state to:', data.url);
+        // Background music URL removed
+      } else {
+        console.log('🚫 Background music event ignored - session mismatch');
       }
     });
 
@@ -456,30 +682,18 @@ const JoinQuiz = () => {
         if (data.type === 'correct-answer' || data.type === 'wrong-answer') {
           console.log('Skipping non-personal answer sound');
           return;
-        }
-        console.log('Playing general sound effect:', data.type);
+        }        console.log('Playing general sound effect:', data.type);
         soundService.playSound(data.type);
       }
     });
 
+    // Return cleanup function for useEffect
     return () => {
-      console.log('Cleaning up socket listeners');
-      socketService.off('sessionStateUpdate');
-      socketService.off('userJoined');
-      socketService.off('userLeft');
-      socketService.off('sessionStateUpdate');
-      socketService.off('showQuestion');
-      socketService.off('showCorrectAnswer');
-      socketService.off('sessionEnded');
-      socketService.off('gameStarted');
-      socketService.off('removeParticipant');
-      socketService.off('quizCompleted');
-      socketService.off('showFinalLeaderboard');
-      socketService.off('playBackgroundMusic');
-      socketService.off('playMusic');
-      socketService.off('playSound');
+      console.log('🧹 Cleaning up socket listeners');
+      // Clean up first - call our defined cleanup function
+      cleanup();
     };
-  }, [sessionId, user?.username]); // Remove timer from dependencies
+  }, [sessionId, user?.username]); // Only depend on sessionId and username changes
 
   useEffect(() => {
     // Check if there's an active session in localStorage
@@ -488,15 +702,51 @@ const JoinQuiz = () => {
       // Clear any existing session data
       localStorage.removeItem('sessionId');
       socketService.emit('leaveSession', { sessionId: savedSessionId });
+      // Tüm sesleri durdur
+      stopAllSounds();
+      stopBackgroundMusic();
     }
 
     // Clean up on unmount
     return () => {
+      console.log('🧹 Cleaning up component - stopping all sounds');
+      // Tüm sesleri durdur
+      stopAllSounds();
+      
+      // Background müziği durdur
+      stopBackgroundMusic();
+      
       if (sessionId) {
         socketService.emit('leaveSession', { sessionId });
       }
     };
   }, []); // Empty dependency array since we want this to run only on mount
+
+  // Sonuç ekranı için müzik kontrolü
+  useEffect(() => {
+    if (gameState === 'finished' || gameStatus === 'finished') {
+      console.log('🎮 Game finished - stopping all sounds except background music');
+      // Tüm sesleri durdur ama arka plan müziğini koru
+      Object.keys(sounds).forEach(type => {
+        if (type !== 'backgroundMusic') {
+          stopSound(type);
+        }
+      });
+      
+      // Arka plan müziğini düşük sesle çal
+      if (sounds.backgroundMusic) {
+        sounds.backgroundMusic.volume = 0.2;
+      }
+    }
+  }, [gameState, gameStatus]);
+
+  // Yeni oyuna girildiğinde müzik kontrolü
+  useEffect(() => {
+    if (gameState === 'joining' && !sessionId) {
+      console.log('🎮 New game joining - stopping background music');
+      stopBackgroundMusic();
+    }
+  }, [gameState, sessionId]);
 
   const handleJoinGame = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -567,84 +817,75 @@ const JoinQuiz = () => {
       setQuestionIndex(null);
       navigate('/');
     }
-  };
-
-  const startTimer = () => {
+  };  
+  
+  const stopTimer = () => {
+    console.log('Stopping timer, current timer ID:', timer);
+    
     if (timer) {
       clearInterval(timer);
+      setTimer(null);
+      console.log('Timer stopped and cleared');
     }
     
+    // Timer sesini durdur (playSound ile çalıştırılan)
+    stopSound('timer');
+    console.log('Timer sound stopped');
+    
+    // Timer sound flag'ini resetle
+    setTimerSoundPlayed(false);
+    
+    // TimeLeft'i de sıfırla (isteğe bağlı)
+    // setTimeLeft(0);
+  };
+  
+  const startTimer = () => {
+    // Önce mevcut timer'ı temizle
+    if (timer) {
+      clearInterval(timer);
+      setTimer(null);
+    }
+    
+    // Timer sound flag'ini resetle
+    setTimerSoundPlayed(false);
+    console.log('Starting new timer');
+    
     const newTimer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 9 && prev > 0) {
-          playSound('timer');
+      setTimeLeft(prev => {        // Timer ses efekti sadece son 5 saniyede ve sadece bir kez çalsın
+        if (prev === 9) {
+          setTimerSoundPlayed(current => {
+            if (!current) {
+              try {
+                playSound('timer', 0.1); // Daha düşük ses seviyesi
+              } catch (error) {
+                console.error('Timer sound play error:', error);
+              }
+              return true;
+            }
+            return current;
+          });
         }
         if (prev <= 1) {
           clearInterval(newTimer);
           setTimer(null);
-          
-          // Timer 0'a ulaştığında kullanıcının cevabına göre ses efekti çal
-          const currentSelectedAnswer = selectedAnswerRef.current;
-          const currentQuestionData = currentQuestionRef.current;
-          
-          console.log('Timer expired - Debug info:', {
-            currentSelectedAnswer,
-            currentQuestionData,
-            selectedOption: currentQuestionData?.options?.[currentSelectedAnswer],
-            isCorrect: currentQuestionData?.options?.[currentSelectedAnswer]?.is_correct
-          });
-          
-          // Eğer kullanıcı cevap verdiyse ses efekti çal
-          if (currentSelectedAnswer !== null && currentQuestionData?.options?.[currentSelectedAnswer]) {
-            const isCorrect = currentQuestionData.options[currentSelectedAnswer].is_correct;
-            console.log('Playing sound effect on timer expiry:', { selectedAnswer: currentSelectedAnswer, isCorrect });
-            
-            setTimeout(() => {
-              if (isCorrect) {
-                playSound('correct-answer');
-              } else {
-                playSound('wrong-answer');
-              }
-            }, 500); // 500ms gecikme ile ses efekti çal
-          }
-          
-          // Timer sıfır olduktan 2 saniye sonra score modal'ını aç
-          setTimeout(() => {
-            console.log('Setting score modal data:', {
-              participants: participants,
-              sorted: participants.sort((a, b) => (b.score || 0) - (a.score || 0)),
-              userScore: score,
-              currentUser: user?.username || 'Misafir'
-            });
-            
-            setScoreModalData({
-              participants: participants.sort((a, b) => (b.score || 0) - (a.score || 0)),
-              userScore: score,
-              currentUser: user?.username || 'Misafir'
-            });
-            setShowScoreModal(true);
 
-            // Hide score modal after 5 seconds
-            setTimeout(() => {
-              setShowScoreModal(false);
-            }, 5000);
-          }, 2000);
-          
-          if (currentSelectedAnswer === null) {
-            // Kullanıcı cevap vermemişse bir işlem yap
-            console.log('No answer selected, timer expired');
-            handleAnswerSelect(-1);
-          } else {
-            console.log('Timer expired with answer:', currentSelectedAnswer);
-          }
+          // Timer bitiminde showCorrectAnswer event'ini tetikle
+          console.log('🔥 Timer expired - triggering showCorrectAnswer event');
+          socketService.emit('showCorrectAnswer', {
+            sessionId: sessionId,
+            questionId: currentQuestion?.id
+          });
           
           return 0;
         }
+        
         return prev - 1;
       });
     }, 1000);
     
+    // Yeni timer'ı state'e kaydet
     setTimer(newTimer);
+    console.log('Timer started with interval ID:', newTimer);
   };
 
   const handleAnswerSelect = (optionIndex) => {
@@ -981,35 +1222,6 @@ const JoinQuiz = () => {
   const renderQuestion = () => {
     if (!currentQuestion) return null;
 
-    // Debug: currentQuestion'daki options'ları console'a yazdır
-    console.log('Debug - Current question options:', currentQuestion.options);
-    console.log('Debug - Selected answer:', selectedAnswer);
-    console.log('Debug - Game status:', gameStatus);
-    console.log('Debug - Time left:', timeLeft);
-    
-    // Debug: Her option'ın detaylarını yazdır
-    if (currentQuestion.options) {
-      currentQuestion.options.forEach((option, idx) => {
-        console.log(`Debug - Option ${idx}:`, {
-          id: option.id,
-          text: option.option_text,
-          is_correct: option.is_correct,
-          raw_option: option
-        });
-      });
-    }
-    
-    // Debug: Seçilen cevabın doğru olup olmadığını kontrol et
-    if (selectedAnswer !== null && currentQuestion.options?.[selectedAnswer]) {
-      const selectedOption = currentQuestion.options[selectedAnswer];
-      console.log('Debug - Selected option details:', {
-        index: selectedAnswer,
-        option: selectedOption,
-        is_correct: selectedOption.is_correct,
-        typeof_is_correct: typeof selectedOption.is_correct
-      });
-    }
-
     return (
       <div className="kahoot-container">
         <Container maxWidth="md" sx={{ py: 4 }}>
@@ -1114,14 +1326,7 @@ const JoinQuiz = () => {
                 // Determine background color based on state
                 let backgroundColor = 'linear-gradient(45deg, #667eea, #764ba2)';
                 let borderColor = 'rgba(255,255,255,0.3)';
-                
-                // Debug: Her option için detaylı log
-                console.log(`Option ${index} (${option.option_text}):`, {
-                  isCorrect: option.is_correct,
-                  isSelected: selectedAnswer === index,
-                  gameStatus,
-                  timeLeft
-                });
+              
                 
                 if (timeLeft === 0 || gameStatus === 'reviewing') {
                   if (option.is_correct) {
@@ -1269,8 +1474,14 @@ const JoinQuiz = () => {
         </Container>
       </div>
     );
-  };
-  const renderScoreModal = () => (
+  };  const renderScoreModal = () => {
+    console.log('🎭 renderScoreModal called!', {
+      showScoreModal,
+      scoreModalData,
+      timestamp: new Date().toISOString()
+    });
+    
+    return (
     <div
       style={{
         position: 'fixed',
@@ -1282,8 +1493,12 @@ const JoinQuiz = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 9999,
+        zIndex: 99999, // Çok yüksek z-index
         animation: 'fadeIn 0.5s ease-in-out'
+      }}
+      onClick={(e) => {
+        console.log('🎯 Score modal overlay clicked!');
+        e.stopPropagation();
       }}
     >
       <Paper
@@ -1455,16 +1670,19 @@ const JoinQuiz = () => {
           @keyframes shrink {
             from { width: 100%; }
             to { width: 0%; }
-          }
-        `}
+          }        `}
       </style>
     </div>
   );
+  };
 
-  const renderResults = () => (
-    <div className="kahoot-container">
+  const renderResults = () => {
+    return (
       <Container maxWidth="md" sx={{ py: 4 }}>
-        <div className="kahoot-card kahoot-card-large">
+        <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
+          <Typography variant="h4" gutterBottom align="center">
+            Oyun Sonuçları
+          </Typography>
           <div style={{ textAlign: 'center', marginBottom: '40px' }}>
             <div style={{ fontSize: '80px', marginBottom: '20px' }}>🏆</div>
             <Typography 
@@ -1609,10 +1827,10 @@ const JoinQuiz = () => {
               🏠 Back to Home
             </Button>
           </Box>
-        </div>
+        </Paper>
       </Container>
-    </div>
-  );
+    );
+  };
 
   const renderGameScreen = () => {
     // Always show the appropriate screen based on current game state
@@ -1690,58 +1908,47 @@ const JoinQuiz = () => {
     
     if (gameState === 'finished' || gameStatus === 'finished') {
       return renderResults();
-    }
-    
+    }    
     // Default fallback
     return renderWaitingRoom();
   };
 
-  // Play / pause background music
-  useEffect(() => {
-    if (!bgMusicUrl) return;
-
-    const isYouTube = bgMusicUrl.includes('youtube.com') || bgMusicUrl.includes('youtu.be');
-
-    // Clean previous
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-
-    if (!isYouTube) {
-      // Direct audio file (mp3, ogg ...)
-      audioRef.current = new Audio(bgMusicUrl);
-      audioRef.current.loop = true;
-      audioRef.current.volume = 0.6;
-      audioRef.current.play().catch(() => {});
-    } else {
-      // For YouTube links, we cannot use <audio>; handled by hidden iframe element appended to body
-      const videoIdMatch = bgMusicUrl.match(/(?:v=|\.be\/)([A-Za-z0-9_-]{11})/);
-      if (videoIdMatch) {
-        const iframe = document.createElement('iframe');
-        iframe.src = `https://www.youtube.com/embed/${videoIdMatch[1]}?autoplay=1&loop=1&playlist=${videoIdMatch[1]}&controls=0&mute=0`;
-        iframe.style.display = 'none';
-        iframe.setAttribute('data-quiz-bg', 'true');
-        document.body.appendChild(iframe);
-        audioRef.current = {
-          pause: () => {
-            iframe.parentNode && iframe.parentNode.removeChild(iframe);
-          }
-        };
-      }
-    }
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-    };
-  }, [bgMusicUrl]);
-
   return (
     <>
       {renderGameScreen()}
+      {console.log('🔄 RENDER: showScoreModal=', showScoreModal, 'participants=', participants?.length)}
+      {showScoreModal && console.log('🎭 RENDERING SCORE MODAL NOW!')}
       {showScoreModal && renderScoreModal()}
+        {/* BACKGROUND MUSIC TOGGLE BUTTON */}
+      {(gameState === 'active' || gameState === 'question' || gameState === 'reviewing') && (
+        <button 
+          style={{
+            position: 'fixed',
+            top: '10px',
+            right: '10px',
+            zIndex: 10000,
+            padding: '12px',
+            backgroundColor: isMusicPlaying ? '#4CAF50' : '#ff4444',
+            color: 'white',
+            border: 'none',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            fontSize: '18px',
+            width: '50px',
+            height: '50px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
+            transition: 'all 0.3s ease'
+          }}
+          onClick={toggleBackgroundMusic}
+          title={isMusicPlaying ? 'Müziği Kapat' : 'Müziği Aç'}
+        >
+          {isMusicPlaying ? '🎵' : '🔇'}
+        </button>
+      )}
+
       {error && (
         <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 1000 }}>
           <Alert 
