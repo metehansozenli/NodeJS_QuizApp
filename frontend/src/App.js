@@ -11,6 +11,7 @@ import EnhancedCreateQuizForm from './components/quiz/EnhancedCreateQuizForm';
 import QuizManagement from './components/quiz/QuizManagement';
 import JoinQuiz from './components/quiz/JoinQuiz';
 import AddQuestionForm from './components/quiz/AddQuestionForm';
+import EditQuestionForm from './components/quiz/EditQuestionForm';
 import HostSession from './components/quiz/HostSession';
 import HostDashboard from './components/host/HostDashboard';
 import UserDashboard from './components/user/UserDashboard';
@@ -337,15 +338,22 @@ function App() {
               <QuizDetail />
             </ProtectedRoute>
           }
-        />
-        <Route
+        />        <Route
           path="/quiz/:quizId/questions/add"
           element={
             <ProtectedRoute requiredRole="host">
               <AddQuestionForm />
             </ProtectedRoute>
           }
-        />        {/* Public Join Routes */}
+        />
+        <Route
+          path="/quiz/:quizId/questions/:questionId/edit"
+          element={
+            <ProtectedRoute requiredRole="host">
+              <EditQuestionForm />
+            </ProtectedRoute>
+          }
+        />{/* Public Join Routes */}
         <Route path="/join/:gameCode?" element={<JoinQuiz />} />
         <Route path="/browse-quizzes" element={<BrowseQuizzes />} />
 

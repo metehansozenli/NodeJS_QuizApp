@@ -264,6 +264,7 @@ const JoinQuiz = () => {
         if (data.participants) {
           // Filter out host from participants list for players
           const playerParticipants = data.participants.filter(p => p.username !== 'Host');
+          console.log('Updating participants to:', playerParticipants);
           setParticipants(playerParticipants);
           
           // Update current user's score
@@ -271,6 +272,7 @@ const JoinQuiz = () => {
             p.username === (user?.username || 'Misafir') || p.userId === user?.id
           );
           if (currentUser && currentUser.score !== undefined) {
+            console.log('Updating user score to:', currentUser.score);
             setScore(currentUser.score);
           }
         }
@@ -345,21 +347,6 @@ const JoinQuiz = () => {
             playSound('wrong-answer');
           }
         }
-
-        // Show score modal after 2 seconds to let users see correct answer first
-        setTimeout(() => {
-          setScoreModalData({
-            participants: participants.sort((a, b) => (b.score || 0) - (a.score || 0)),
-            userScore: score,
-            currentUser: user?.username || 'Misafir'
-          });
-          setShowScoreModal(true);
-
-          // Hide score modal after 5 seconds
-          setTimeout(() => {
-            setShowScoreModal(false);
-          }, 5000);
-        }, 2000);
       }
     });
 
@@ -620,6 +607,28 @@ const JoinQuiz = () => {
               }
             }, 500); // 500ms gecikme ile ses efekti çal
           }
+          
+          // Timer sıfır olduktan 2 saniye sonra score modal'ını aç
+          setTimeout(() => {
+            console.log('Setting score modal data:', {
+              participants: participants,
+              sorted: participants.sort((a, b) => (b.score || 0) - (a.score || 0)),
+              userScore: score,
+              currentUser: user?.username || 'Misafir'
+            });
+            
+            setScoreModalData({
+              participants: participants.sort((a, b) => (b.score || 0) - (a.score || 0)),
+              userScore: score,
+              currentUser: user?.username || 'Misafir'
+            });
+            setShowScoreModal(true);
+
+            // Hide score modal after 5 seconds
+            setTimeout(() => {
+              setShowScoreModal(false);
+            }, 5000);
+          }, 2000);
           
           if (currentSelectedAnswer === null) {
             // Kullanıcı cevap vermemişse bir işlem yap
@@ -1261,6 +1270,197 @@ const JoinQuiz = () => {
       </div>
     );
   };
+  const renderScoreModal = () => (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        animation: 'fadeIn 0.5s ease-in-out'
+      }}
+    >
+      <Paper
+        elevation={20}
+        sx={{
+          maxWidth: '600px',
+          width: '90%',
+          maxHeight: '80vh',
+          overflow: 'auto',
+          borderRadius: '25px',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          p: 4,
+          textAlign: 'center',
+          position: 'relative',
+          transform: 'scale(0.8)',
+          animation: 'scaleIn 0.5s ease-out forwards'
+        }}
+      >
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 1 }}>
+            🏆
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
+            Anlık Skor Durumu
+          </Typography>
+          <Typography variant="h6" sx={{ opacity: 0.9 }}>
+            Şu andaki sıralama
+          </Typography>
+        </Box>
+
+        {scoreModalData && (
+          <>
+            {console.log('Rendering score modal with data:', scoreModalData)}
+            {console.log('Participants array:', scoreModalData.participants)}
+            {console.log('Participants length:', scoreModalData.participants?.length)}
+            
+            {/* User's Own Score */}
+            <Box
+              sx={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                borderRadius: '15px',
+                p: 3,
+                mb: 3,
+                border: '2px solid rgba(255, 255, 255, 0.3)'
+              }}
+            >
+              <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>
+                Senin Puanın
+              </Typography>
+              <Typography variant="h2" sx={{ fontWeight: 'bold', color: '#FFE082' }}>
+                {scoreModalData.userScore}
+              </Typography>
+            </Box>
+
+            {/* Leaderboard */}
+            <Box
+              sx={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '15px',
+                p: 2
+              }}
+            >
+              <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+                🥇 Top 5 Oyuncu
+              </Typography>
+              <List sx={{ p: 0 }}>
+                {scoreModalData.participants.slice(0, 5).map((participant, index) => {
+                  const isCurrentUser = participant.username === scoreModalData.currentUser;
+                  const position = index + 1;
+                  
+                  return (
+                    <ListItem
+                      key={`score-${participant.userId || index}`}
+                      sx={{
+                        background: isCurrentUser 
+                          ? 'rgba(255, 224, 130, 0.3)' 
+                          : 'rgba(255, 255, 255, 0.05)',
+                        borderRadius: '10px',
+                        mb: 1,
+                        border: isCurrentUser ? '2px solid #FFE082' : 'none',
+                        py: 1
+                      }}
+                    >
+                      <ListItemAvatar>
+                        <Avatar
+                          sx={{
+                            bgcolor: position === 1 ? '#FFD700' : 
+                                    position === 2 ? '#C0C0C0' : 
+                                    position === 3 ? '#CD7F32' : '#8e8e93',
+                            color: position <= 3 ? '#000' : '#fff',
+                            fontWeight: 'bold',
+                            width: 40,
+                            height: 40
+                          }}
+                        >
+                          {position === 1 ? '🥇' : 
+                           position === 2 ? '🥈' : 
+                           position === 3 ? '🥉' : position}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Typography 
+                            variant="body1" 
+                            sx={{ 
+                              fontWeight: isCurrentUser ? 'bold' : 'medium',
+                              color: 'white'
+                            }}
+                          >
+                            {participant.username}
+                            {isCurrentUser && ' (Sen)'}
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography 
+                            variant="h6" 
+                            sx={{ 
+                              fontWeight: 'bold', 
+                              color: '#FFE082' 
+                            }}
+                          >
+                            {participant.score || 0} puan
+                          </Typography>
+                        }
+                      />
+                    </ListItem>
+                  );
+                })}
+              </List>
+            </Box>
+
+            {/* Auto-close timer */}
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                Otomatik olarak kapanacak...
+              </Typography>
+              <LinearProgress 
+                variant="determinate" 
+                value={100} 
+                sx={{ 
+                  mt: 1,
+                  height: 4,
+                  borderRadius: 2,
+                  backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                  '& .MuiLinearProgress-bar': {
+                    backgroundColor: '#FFE082',
+                    animation: 'shrink 5s linear forwards'
+                  }
+                }}
+              />
+            </Box>
+          </>
+        )}
+      </Paper>
+
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          
+          @keyframes scaleIn {
+            from { transform: scale(0.8); }
+            to { transform: scale(1); }
+          }
+          
+          @keyframes shrink {
+            from { width: 100%; }
+            to { width: 0%; }
+          }
+        `}
+      </style>
+    </div>
+  );
+
   const renderResults = () => (
     <div className="kahoot-container">
       <Container maxWidth="md" sx={{ py: 4 }}>
@@ -1541,6 +1741,7 @@ const JoinQuiz = () => {
   return (
     <>
       {renderGameScreen()}
+      {showScoreModal && renderScoreModal()}
       {error && (
         <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 1000 }}>
           <Alert 
