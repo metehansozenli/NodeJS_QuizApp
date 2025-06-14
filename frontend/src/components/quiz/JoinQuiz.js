@@ -351,7 +351,8 @@ const JoinQuiz = () => {
             ...data.activeQuestion,
             options: data.activeQuestion.options?.map(opt => ({
               id: opt.id,
-              option_text: opt.option_text
+              option_text: opt.option_text,
+              is_correct: opt.is_correct
             }))
           };
           setCurrentQuestion(playerQuestion);
@@ -726,6 +727,7 @@ const JoinQuiz = () => {
   useEffect(() => {
     if (gameState === 'finished' || gameStatus === 'finished') {
       console.log('🎮 Game finished - stopping all sounds except background music');
+      stopBackgroundMusic()
       // Tüm sesleri durdur ama arka plan müziğini koru
       Object.keys(sounds).forEach(type => {
         if (type !== 'backgroundMusic') {
@@ -1702,7 +1704,6 @@ const JoinQuiz = () => {
               Thanks for playing! Here are the final results.
             </Typography>
           </div>
-
           <Box sx={{ 
             textAlign: 'center', 
             mb: 4,
