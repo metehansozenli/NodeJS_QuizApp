@@ -179,7 +179,7 @@ const RegisterForm = () => {
                   mb: 2,
                 }}
               >
-                🎯 Choose Your Role
+                🎯 Rolünü Seç
               </Typography>
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
                 <Box 
@@ -203,10 +203,10 @@ const RegisterForm = () => {
                   }}
                 >
                   <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-                    🎮 Player
+                    🎮 Oyuncu
                   </Typography>
                   <Typography variant="body2">
-                    Join and play quizzes
+                    Quize katıl ve oynayın
                   </Typography>
                 </Box>
                 
@@ -234,7 +234,7 @@ const RegisterForm = () => {
                     🏆 Host
                   </Typography>
                   <Typography variant="body2">
-                    Create and manage quizzes
+                    Quiz oluştur ve yönet
                   </Typography>
                 </Box>
               </Box>
@@ -270,7 +270,7 @@ const RegisterForm = () => {
               {loading ? (
                 <CircularProgress size={24} sx={{ color: 'white' }} />
               ) : (
-                '🚀 Create Account!'
+                '🚀 Hesap Oluştur!'
               )}
             </Button>
 
@@ -282,7 +282,7 @@ const RegisterForm = () => {
                   fontSize: '16px'
                 }}
               >
-                Already have an account?{' '}
+                Zaten hesabın var mı?{' '}
                 <Link 
                   component={RouterLink} 
                   to="/login"
@@ -295,7 +295,7 @@ const RegisterForm = () => {
                     }
                   }}
                 >
-                  Sign in here 👋
+                  Giriş yapmak için tıklayın 👋
                 </Link>
               </Typography>
             </Box>
