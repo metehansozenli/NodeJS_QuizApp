@@ -19,17 +19,17 @@ import { register } from '../../store/slices/authSlice';
 
 const validationSchema = Yup.object({
   username: Yup.string()
-    .min(3, 'Username must be at least 3 characters')
-    .required('Username is required'),
+    .min(3, 'Kullanıcı adı en az 3 karakter olmalıdır')
+    .required('Kullanıcı adı gereklidir'),
   password: Yup.string()
-    .min(6, 'Password must be at least 6 characters')
-    .required('Password is required'),
+    .min(6, 'Şifre en az 6 karakter olmalıdır')
+    .required('Şifre gereklidir'),
   confirmPassword: Yup.string()
-    .oneOf([Yup.ref('password'), null], 'Passwords must match')
-    .required('Confirm password is required'),
+    .oneOf([Yup.ref('password'), null], 'Şifreler eşleşmelidir')
+    .required('Şifre tekrarı gereklidir'),
   role: Yup.string()
-    .oneOf(['player', 'host'], 'Please select a valid role')
-    .required('Role is required'),
+    .oneOf(['player', 'host'], 'Lütfen geçerli bir rol seçin')
+    .required('Rol seçimi gereklidir'),
 });
 
 const RegisterForm = () => {
@@ -63,12 +63,11 @@ const RegisterForm = () => {
   return (
     <div className="kahoot-container">
       <Container maxWidth="sm" sx={{ py: 4 }}>
-        <div className="kahoot-card">
-          <div className="kahoot-title">
-            🎉 Join the Fun!
+        <div className="kahoot-card">          <div className="kahoot-title">
+            🎉 Eğlenceye Katıl!
           </div>
           <div className="kahoot-subtitle">
-            Create your account and start quizzing
+            Hesabını oluştur ve quiz yapmaya başla
           </div>
 
           {error && (
@@ -92,9 +91,8 @@ const RegisterForm = () => {
           >
             <TextField
               margin="normal"
-              fullWidth
-              id="username"
-              label="👤 Choose a Username"
+              fullWidth              id="username"
+              label="Kullanıcı Adı Seç"
               name="username"
               autoComplete="username"
               autoFocus
@@ -116,9 +114,8 @@ const RegisterForm = () => {
 
             <TextField
               margin="normal"
-              fullWidth
-              name="password"
-              label="🔒 Create Password"
+              fullWidth              name="password"
+              label="Şifre Oluştur"
               type="password"
               id="password"
               autoComplete="new-password"
@@ -140,9 +137,8 @@ const RegisterForm = () => {
 
             <TextField
               margin="normal"
-              fullWidth
-              name="confirmPassword"
-              label="🔐 Confirm Password"
+              fullWidth              name="confirmPassword"
+              label="Şifreyi Onayla"
               type="password"
               id="confirmPassword"
               value={formik.values.confirmPassword}

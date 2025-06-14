@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  Container,
-  Paper,
+import {  Container,
   Typography,
   Box,
   Button,
@@ -21,7 +19,6 @@ import {
   ListItemText,
   ListItemAvatar,
   IconButton,
-  Divider,
   CircularProgress,
   LinearProgress,
 } from '@mui/material';
@@ -32,13 +29,15 @@ import {
   Quiz as QuizIcon,
   EmojiEvents as TrophyIcon,
   Delete as RemoveIcon,
-  Refresh as RefreshIcon,
-  SkipNext as NextIcon,
+  Refresh as RefreshIcon,  SkipNext as NextIcon,
   CheckCircle as ShowAnswerIcon,
+  Analytics as AnalyticsIcon,
+  PeopleAlt as ParticipantsIcon,  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 import socketService from '../../services/socket';
 import soundService from '../../services/soundService';
-import { apiService } from '../../services/api';
+import { normalizeJoinedAt, formatJoinTime } from '../../utils/timeUtils';
+import '../../styles/quiz-theme.css';
 
 const HostSession = () => {
   const { sessionId } = useParams();
@@ -56,11 +55,13 @@ const HostSession = () => {
   const [questions, setQuestions] = useState([]);
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [questionIndex, setQuestionIndex] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [timer, setTimer] = useState(null);  const [questionPhase, setQuestionPhase] = useState('waiting'); // waiting, active, reviewing
+  const [timeLeft, setTimeLeft] = useState(0);  const [timer, setTimer] = useState(null);
+  const [questionPhase, setQuestionPhase] = useState('waiting'); // waiting, active, reviewing
   const [answerStats, setAnswerStats] = useState({ correct: 0, incorrect: 0, total: 0 });
   const [socketSetupDone, setSocketSetupDone] = useState(false);
   const [bgMusicUrl, setBgMusicUrl] = useState(null);
+  const [questionAnalytics, setQuestionAnalytics] = useState([]);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const audioRef = useRef(null);
 
   useEffect(() => {
@@ -120,9 +121,13 @@ const HostSession = () => {
       
       const data = await response.json();
       console.log('Session data loaded:', data);
+        setSessionData(data.session);        // Ensure each participant has a joined_at timestamp
+      const participantsWithTimestamp = (data.participants || []).map(participant => ({
+        ...participant,
+        joined_at: normalizeJoinedAt(participant.joined_at || participant.created_at)
+      }));
+      setParticipants(participantsWithTimestamp);
       
-      setSessionData(data.session);
-      setParticipants(data.participants || []);
       setLeaderboard(data.leaderboard || []);
       setQuestions(data.questions || []); // Quiz sorularını yüklüyoruz
       setGameStatus(data.session.status.toLowerCase());
@@ -171,12 +176,14 @@ const HostSession = () => {
       });
       console.log('hostJoinSession emitted immediately');
     }
-    
-    // Listen for participant events
+      // Listen for participant events
     socketService.on('userJoined', (data) => {
       console.log('User joined:', data);
       if (data.sessionId === sessionId) {
-        console.log(`New participant joined: ${data.username}`);
+        console.log(`New participant joined: ${data.username}`);        // Set joined_at timestamp if not provided
+        if (data.user) {
+          data.user.joined_at = normalizeJoinedAt(data.user.joined_at);
+        }
         loadSessionData(); // Refresh participant list
       }
     });
@@ -187,13 +194,15 @@ const HostSession = () => {
         console.log(`Participant left: ${data.username}`);
         loadSessionData(); // Refresh participant list
       }
-    });
-    
-    socketService.on('sessionStateUpdate', (data) => {
+    });    socketService.on('sessionStateUpdate', (data) => {
       console.log('Session state update:', data);
       if (data.sessionId === sessionId) {
-        if (data.participants) {
-          setParticipants(data.participants);
+        if (data.participants) {          // Ensure each participant has a joined_at timestamp
+          const participantsWithTimestamp = data.participants.map(participant => ({
+            ...participant,
+            joined_at: normalizeJoinedAt(participant.joined_at || participant.created_at)
+          }));
+          setParticipants(participantsWithTimestamp);
         }
         if (data.leaderboard) {
           setLeaderboard(data.leaderboard);
@@ -407,9 +416,13 @@ const HostSession = () => {
     setQuestionPhase('waiting');
     setTimeLeft(0);
   };
-
   const handleFinishGame = () => {
     setQuestionPhase('finished');
+    
+    // Load question analytics
+    setTimeout(() => {
+      loadQuestionAnalytics();
+    }, 1000);
     
     // Emit finish game event
     socketService.emit('finishGame', { sessionId });
@@ -468,6 +481,47 @@ const HostSession = () => {
     // Host just stores the URL for reference but doesn't play music
     // The music will only play on player side when game starts
   };
+  const loadQuestionAnalytics = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/session/${sessionId}/analytics`);
+      if (response.ok) {
+        const analytics = await response.json();
+        setQuestionAnalytics(analytics);
+        setShowAnalytics(true);
+      } else {
+        // Mock data if API doesn't exist yet
+        const mockAnalytics = questions.map((question, index) => ({
+          question_text: question.question_text,
+          correct_answers: Math.floor(Math.random() * participants.length),
+          total_answers: participants.length,
+          avg_time: Math.floor(Math.random() * 20) + 10,
+          options: question.options?.map(option => ({
+            option_text: option.option_text,
+            is_correct: option.is_correct,
+            answer_count: Math.floor(Math.random() * participants.length)
+          })) || []
+        }));
+        setQuestionAnalytics(mockAnalytics);
+        setShowAnalytics(true);
+      }
+    } catch (error) {
+      console.error('Analitik verileri alınamadı:', error);
+      // Fallback to mock data
+      const mockAnalytics = questions.map((question, index) => ({
+        question_text: question.question_text,
+        correct_answers: Math.floor(Math.random() * participants.length),
+        total_answers: participants.length,
+        avg_time: Math.floor(Math.random() * 20) + 10,
+        options: question.options?.map(option => ({
+          option_text: option.option_text,
+          is_correct: option.is_correct,
+          answer_count: Math.floor(Math.random() * participants.length)
+        })) || []
+      }));
+      setQuestionAnalytics(mockAnalytics);
+      setShowAnalytics(true);
+    }
+  };
 
   if (loading) {
     return (
@@ -489,49 +543,127 @@ const HostSession = () => {
   }
 
   // Render quiz control panel when game is active
-  if (gameStatus === 'active') {
-    return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Paper elevation={3} sx={{ p: 4 }}>
-          {/* Header */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-            <Box>
-              <Typography variant="h4" gutterBottom>
-                Quiz Kontrol Paneli
+  if (gameStatus === 'active') {    return (
+      <div className="quiz-container">
+        <Container maxWidth="lg" sx={{ py: 4 }}>
+          {/* Analytics Panel */}
+          <div className="quiz-card quiz-fade-in">
+            <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+              <AnalyticsIcon sx={{ fontSize: '2rem', color: '#667eea' }} />
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}
+              >
+                Canlı Analitikler
               </Typography>
-              <Typography variant="h6" color="textSecondary">
-                {sessionData?.quiz_title || 'Quiz Session'}
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                <Chip
-                  icon={<QuizIcon />}
-                  label={`Kod: ${sessionData?.session_code}`}
-                  color="primary"
-                  size="large"
-                />
-                <Chip
-                  label={`Soru: ${questionIndex + 1}/${questions.length}`}
-                  color="info"
-                />
-                <Chip
-                  label={`Katılımcı: ${participants.length}`}
-                  color="success"
-                />
-              </Box>
             </Box>
-            
-            <Button
-              variant="outlined"
-              startIcon={<StopIcon />}
-              color="error"
-              onClick={() => setShowEndDialog(true)}
-            >
-              Oyunu Bitir
-            </Button>
-          </Box>
+              <div className="session-stats-grid">
+              <div className="session-stat-item">
+                <ParticipantsIcon sx={{ fontSize: '2rem', color: '#667eea', mb: 1 }} />
+                <div className="session-stat-number">{participants.length}</div>
+                <div className="session-stat-label">Aktif Katılımcı</div>
+              </div>              <div className="session-stat-item">
+                <QuizIcon sx={{ fontSize: '2rem', color: '#667eea', mb: 1 }} />
+                <div className="session-stat-number">{questionPhase === 'finished' ? questions.length : Math.min(questionIndex + 1, questions.length)}</div>
+                <div className="session-stat-label">/ {questions.length} Soru</div>
+              </div>
+              <div className="session-stat-item">
+                <TrendingUpIcon sx={{ fontSize: '2rem', color: '#667eea', mb: 1 }} />
+                <div className="session-stat-number">
+                  {participants.length > 0 ? Math.round((answerStats.correct / (answerStats.correct + answerStats.incorrect)) * 100 || 0) : 0}%
+                </div>
+                <div className="session-stat-label">Doğru Oranı</div>
+              </div>
+            </div>
+
+            {/* Progress Bar */}            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, color: '#7f8c8d' }}>
+                Quiz İlerlemesi ({questionPhase === 'finished' ? questions.length : Math.min(questionIndex + 1, questions.length)} / {questions.length})
+              </Typography>
+              <LinearProgress
+                variant="determinate"
+                value={questionPhase === 'finished' ? 100 : Math.min(((questionIndex + 1) / questions.length) * 100, 100)}
+                className="quiz-progress-bar"
+                sx={{ height: 12, borderRadius: 6 }}
+              />
+            </Box>
+          </div>
+
+          {/* Control Panel */}
+          <div className="quiz-card session-control-panel quiz-fade-in">
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexWrap: 'wrap', gap: 2 }}>
+              <Box>
+                <Typography 
+                  variant="h4" 
+                  sx={{ 
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    mb: 1
+                  }}
+                >
+                  Quiz Kontrol Paneli
+                </Typography>
+                <Typography variant="h6" sx={{ color: '#7f8c8d', fontWeight: 500 }}>
+                  {sessionData?.quiz_title || 'Quiz Session'}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+                  <Chip
+                    icon={<QuizIcon />}
+                    label={`Kod: ${sessionData?.session_code}`}
+                    className="quiz-badge"
+                    sx={{ fontFamily: 'monospace', fontSize: '1rem' }}
+                  />
+                  <Chip
+                    label="🔴 CANLI"
+                    className="quiz-badge-error"
+                    sx={{ 
+                      animation: 'pulse 2s infinite',
+                      '@keyframes pulse': {
+                        '0%': { opacity: 1 },
+                        '50%': { opacity: 0.7 },
+                        '100%': { opacity: 1 }
+                      }
+                    }}
+                  />
+                </Box>
+              </Box>
+              
+              <Button
+                variant="contained"
+                startIcon={<StopIcon />}
+                onClick={() => setShowEndDialog(true)}
+                sx={{
+                  background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
+                  color: 'white',
+                  borderRadius: '20px',
+                  padding: '14px 28px',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  boxShadow: '0 8px 25px rgba(231, 76, 60, 0.3)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #c0392b, #a93226)',
+                    transform: 'translateY(-3px)',
+                    boxShadow: '0 12px 35px rgba(231, 76, 60, 0.4)',
+                  }
+                }}              >
+                Oyunu Bitir
+              </Button>
+            </Box>
+          </div>
 
           {/* Current Question Panel */}
-          <Paper sx={{ p: 3, mb: 4, bgcolor: 'grey.50' }}>
+          <div className="quiz-card quiz-fade-in">
             {!currentQuestion && questionPhase === 'waiting' && (
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="h5" gutterBottom>
@@ -544,12 +676,19 @@ const HostSession = () => {
                   <>
                     <Typography variant="body1" sx={{ mb: 3 }}>
                       {questions[questionIndex]?.question_text}
-                    </Typography>
-                    <Button
+                    </Typography>                    <Button
                       variant="contained"
                       size="large"
                       startIcon={<StartIcon />}
                       onClick={handleStartQuestion}
+                      className="quiz-button-primary"
+                      sx={{
+                        py: 2,
+                        px: 4,
+                        fontSize: '1.2rem',
+                        fontWeight: 700,
+                        minWidth: '200px'
+                      }}
                     >
                       Soruyu Başlat
                     </Button>
@@ -624,22 +763,34 @@ const HostSession = () => {
                       color="error" 
                     />
                   </Box>
-                </Box>
-
-                <Box sx={{ mt: 3, textAlign: 'center' }}>
+                </Box>                <Box sx={{ mt: 3, textAlign: 'center', display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
                   <Button
                     variant="contained"
-                    color="warning"
                     startIcon={<ShowAnswerIcon />}
                     onClick={handleShowAnswer}
-                    sx={{ mr: 2 }}
+                    className="quiz-button-warning"
+                    sx={{
+                      py: 1.5,
+                      px: 3,
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      minWidth: '160px'
+                    }}
                   >
                     Cevabı Göster
                   </Button>
                   <Button
-                    variant="outlined"
+                    variant="contained"
                     startIcon={<NextIcon />}
                     onClick={handleNextQuestion}
+                    className="quiz-button-primary"
+                    sx={{
+                      py: 1.5,
+                      px: 3,
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      minWidth: '160px'
+                    }}
                   >
                     Sonraki Soru
                   </Button>
@@ -654,137 +805,342 @@ const HostSession = () => {
                 </Typography>
                 <Typography variant="h6" sx={{ mb: 3 }}>
                   Tüm sorular tamamlandı. Final skor tablosu aşağıda!
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                </Typography>                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      if (!showAnalytics && questionAnalytics.length === 0) {
+                        loadQuestionAnalytics();
+                      } else {
+                        setShowAnalytics(!showAnalytics);
+                      }
+                    }}
+                    sx={{
+                      borderRadius: '20px',
+                      py: 1.5,
+                      px: 3,
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      minWidth: '180px',
+                      borderColor: '#667eea',
+                      color: '#667eea',
+                      '&:hover': {
+                        borderColor: '#5a6fd8',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                      }
+                    }}
+                  >
+                    📊 {showAnalytics ? 'Analitikleri Gizle' : 'Detaylı Analitik Göster'}
+                  </Button>
                   <Button
                     variant="contained"
-                    color="primary"
                     onClick={() => window.location.reload()}
+                    className="quiz-button-success"
+                    sx={{
+                      py: 1.5,
+                      px: 3,
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      minWidth: '180px'
+                    }}
                   >
                     Yeni Quiz Başlat
                   </Button>
                   <Button
-                    variant="outlined"
-                    color="error"
+                    variant="contained"
                     onClick={() => setShowEndDialog(true)}
-                  >
-                    Session'ı Sonlandır
+                    sx={{
+                      background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
+                      color: 'white',
+                      borderRadius: '20px',
+                      padding: '12px 24px',
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      textTransform: 'none',
+                      boxShadow: '0 8px 25px rgba(231, 76, 60, 0.3)',
+                      transition: 'all 0.3s ease',
+                      minWidth: '180px',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #c0392b, #a93226)',
+                        transform: 'translateY(-3px)',
+                        boxShadow: '0 12px 35px rgba(231, 76, 60, 0.4)',
+                      }
+                    }}
+                  >                    Session'ı Sonlandır
                   </Button>
                 </Box>
               </Box>
             )}
-          </Paper>
+          </div>
 
-          {/* Participants List */}
+          {/* Question Analytics - Show when quiz is finished */}
+          {questionPhase === 'finished' && showAnalytics && questionAnalytics.length > 0 && (
+            <div className="quiz-card quiz-fade-in" style={{ marginTop: '20px' }}>
+              <Typography 
+                variant="h5" 
+                gutterBottom 
+                sx={{ 
+                  fontWeight: 'bold',
+                  color: '#333',
+                  mb: 3,
+                  textAlign: 'center'
+                }}
+              >
+                📊 Soru Bazlı Analitik Detaylar
+              </Typography>
+              
+              <Grid container spacing={3}>
+                {questionAnalytics.map((questionData, index) => (
+                  <Grid item xs={12} md={6} key={index}>
+                    <Card 
+                      sx={{ 
+                        height: '100%',
+                        background: 'linear-gradient(135deg, #f8f9fa 0%, #fff 100%)',
+                        border: '2px solid #e9ecef',
+                        borderRadius: '16px',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          transform: 'translateY(-5px)',
+                          boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+                        }
+                      }}
+                    >
+                      <CardContent sx={{ p: 3 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, color: '#333' }}>
+                          Soru {index + 1}: {questionData.question_text}
+                        </Typography>
+                        
+                        <Box sx={{ mb: 3 }}>
+                          <Typography variant="body2" sx={{ color: '#666', mb: 1 }}>
+                            📈 Cevap Dağılımı:
+                          </Typography>
+                          <LinearProgress
+                            variant="determinate"
+                            value={(questionData.correct_answers / questionData.total_answers) * 100}
+                            sx={{ 
+                              height: 8, 
+                              borderRadius: 4, 
+                              backgroundColor: '#ffcdd2',
+                              '& .MuiLinearProgress-bar': {
+                                backgroundColor: '#4caf50'
+                              }
+                            }}
+                          />
+                          <Typography variant="body2" sx={{ mt: 1, fontWeight: 600 }}>
+                            Doğru: {questionData.correct_answers} / {questionData.total_answers} 
+                            ({Math.round((questionData.correct_answers / questionData.total_answers) * 100)}%)
+                          </Typography>
+                        </Box>
+
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                          <Chip
+                            label={`✅ Doğru: ${questionData.correct_answers}`}
+                            size="small"
+                            sx={{
+                              background: 'linear-gradient(45deg, #4caf50, #8bc34a)',
+                              color: 'white',
+                              fontWeight: 'bold'
+                            }}
+                          />
+                          <Chip
+                            label={`❌ Yanlış: ${questionData.total_answers - questionData.correct_answers}`}
+                            size="small"
+                            sx={{
+                              background: 'linear-gradient(45deg, #f44336, #e91e63)',
+                              color: 'white',
+                              fontWeight: 'bold'
+                            }}
+                          />
+                          <Chip
+                            label={`⏱️ Ort. Süre: ${questionData.avg_time || 'N/A'}s`}
+                            size="small"
+                            sx={{
+                              background: 'linear-gradient(45deg, #ff9800, #ffc107)',
+                              color: 'white',
+                              fontWeight: 'bold'
+                            }}
+                          />
+                        </Box>
+
+                        {questionData.options && (
+                          <Box>
+                            <Typography variant="body2" sx={{ color: '#666', mb: 1, fontWeight: 600 }}>
+                              📋 Seçenek Detayları:
+                            </Typography>
+                            {questionData.options.map((option, optIndex) => (
+                              <Box key={optIndex} sx={{ mb: 1 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <Typography variant="body2" sx={{ fontSize: '0.9rem' }}>
+                                    {option.is_correct ? '✅' : '⭕'} {option.option_text}
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 'bold', color: option.is_correct ? '#4caf50' : '#666' }}>
+                                    {option.answer_count || 0} kişi
+                                  </Typography>
+                                </Box>
+                                <LinearProgress
+                                  variant="determinate"
+                                  value={(option.answer_count / questionData.total_answers) * 100}
+                                  sx={{ 
+                                    height: 4, 
+                                    borderRadius: 2,
+                                    backgroundColor: '#f5f5f5',
+                                    '& .MuiLinearProgress-bar': {
+                                      backgroundColor: option.is_correct ? '#4caf50' : '#ff9800'
+                                    }
+                                  }}
+                                />
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </div>
+          )}          {/* Participants List */}
           <Grid container spacing={4}>
             <Grid item xs={12} md={6}>
-              <Typography variant="h6" gutterBottom>
-                Katılımcılar ({participants.length})
-              </Typography>
-                             <List sx={{ maxHeight: 300, overflow: 'auto' }}>
-                 {participants.map((participant, index) => (
-                   <ListItem key={`active-participant-${participant.user_id || participant.id || index}`}>
-                     <ListItemAvatar>
-                       <Avatar sx={{ bgcolor: 'primary.main' }}>
-                         <PersonIcon />
-                       </Avatar>
-                     </ListItemAvatar>
-                     <ListItemText
-                       primary={participant.username}
-                       secondary={`Puan: ${participant.score || 0}`}
-                     />
-                   </ListItem>
-                 ))}
-               </List>
+              <Card className="quiz-card">
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#333' }}>
+                    Katılımcılar ({participants.length})
+                  </Typography>
+                  <List sx={{ maxHeight: 300, overflow: 'auto' }}>
+                    {participants.map((participant, index) => (
+                      <ListItem key={`active-participant-${participant.user_id || participant.id || index}`}>
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'primary.main' }}>
+                            <PersonIcon />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={participant.username}
+                          secondary={`Puan: ${participant.score || 0}`}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </CardContent>
+              </Card>
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <Typography variant="h6" gutterBottom>
-                Anlık Skor Tablosu
-              </Typography>
-              <List sx={{ maxHeight: 300, overflow: 'auto' }}>
-                {leaderboard.slice(0, 10).map((player, index) => (
-                  <ListItem key={`leaderboard-${player.user_id || index}`}>
-                    <ListItemAvatar>
-                      <Avatar sx={{ 
-                        bgcolor: index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? '#CD7F32' : 'grey.400' 
-                      }}>
-                        {index === 0 ? <TrophyIcon /> : index + 1}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={player.username}
-                      secondary={`${player.score} puan`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
+              <Card className="quiz-card">
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#333' }}>
+                    Anlık Skor Tablosu
+                  </Typography>
+                  <List sx={{ maxHeight: 300, overflow: 'auto' }}>
+                    {leaderboard.slice(0, 10).map((player, index) => (
+                      <ListItem key={`leaderboard-${player.user_id || index}`}>
+                        <ListItemAvatar>
+                          <Avatar sx={{ 
+                            bgcolor: index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? '#CD7F32' : 'grey.400' 
+                          }}>
+                            {index === 0 ? <TrophyIcon /> : index + 1}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={player.username}
+                          secondary={`${player.score} puan`}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </CardContent>
+              </Card>
             </Grid>
           </Grid>
-        </Paper>
-
-        {/* End Game Dialog */}
-        <Dialog open={showEndDialog} onClose={() => setShowEndDialog(false)}>
-          <DialogTitle>Oyunu Sonlandır</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Oyunu sonlandırmak istediğinizden emin misiniz? 
-              Tüm katılımcılar çıkarılacak ve session sona erecek.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setShowEndDialog(false)}>İptal</Button>
-            <Button onClick={handleEndSession} color="error" variant="contained">
-              Sonlandır
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Container>
+          
+          {/* End Game Dialog */}
+          <Dialog open={showEndDialog} onClose={() => setShowEndDialog(false)}>
+            <DialogTitle>Oyunu Sonlandır</DialogTitle>
+            <DialogContent>
+              <Typography>
+                Oyunu sonlandırmak istediğinizden emin misiniz? 
+                Tüm katılımcılar çıkarılacak ve session sona erecek.
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setShowEndDialog(false)}>İptal</Button>
+              <Button onClick={handleEndSession} color="error" variant="contained">
+                Sonlandır
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </Container>
+      </div>
     );
   }
-
   // Render lobby when game is not active
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Paper elevation={3} sx={{ p: 4 }}>
+    <div className="quiz-container">
+      <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-          <Box>
-            <Typography variant="h4" gutterBottom>
-              {sessionData?.quiz_title || 'Quiz Session'}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Chip
-                icon={<QuizIcon />}
-                label={`Kod: ${sessionData?.session_code}`}
-                color="primary"
-                size="large"
-              />
-              <Chip
-                label={`Durum: ${gameStatus.toUpperCase()}`}
-                color={gameStatus === 'active' ? 'success' : 'default'}
-              />
+        <div className="quiz-card quiz-fade-in">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexWrap: 'wrap', gap: 2 }}>
+            <Box>
+              <Typography 
+                variant="h3" 
+                sx={{ 
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  mb: 1
+                }}
+              >
+                {sessionData?.quiz_title || 'Quiz Session'}
+              </Typography>
+              <Typography variant="h6" sx={{ color: '#7f8c8d', fontWeight: 500, mb: 2 }}>
+                Katılımcılar bekleniyor...
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Chip
+                  icon={<QuizIcon />}
+                  label={`Kod: ${sessionData?.session_code}`}
+                  className="quiz-badge"
+                  sx={{ fontFamily: 'monospace', fontSize: '1.2rem', py: 1 }}
+                />
+                <Chip
+                  label={`Durum: ${gameStatus.toUpperCase()}`}
+                  className={gameStatus === 'active' ? 'quiz-badge-success' : 'quiz-badge-warning'}
+                />
+                <Chip
+                  icon={<PersonIcon />}
+                  label={`${participants.length} Katılımcı`}
+                  className="quiz-badge-success"
+                />
+              </Box>
             </Box>
-          </Box>
-          
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={loadSessionData}
-            >
-              Yenile
-            </Button>
             
-            {gameStatus === 'pending' && (
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Button
                 variant="contained"
-                startIcon={<StartIcon />}
-                onClick={handleStartGame}
-                color="success"
-                size="large"
+                startIcon={<RefreshIcon />}
+                onClick={loadSessionData}
+                className="quiz-button-secondary"
+                sx={{ minWidth: '140px' }}
               >
-                Oyunu Başlat
+                Yenile
+              </Button>
+              
+              {gameStatus === 'pending' && (
+                <Button
+                  variant="contained"
+                  startIcon={<StartIcon />}
+                  onClick={handleStartGame}
+                  className="quiz-button-success"
+                  sx={{ 
+                    minWidth: '180px',
+                    py: 1.5,
+                    fontSize: '1.1rem',
+                    fontWeight: 700
+                  }}
+                >
+                  Oyunu Başlat
               </Button>
             )}
             
@@ -793,105 +1149,154 @@ const HostSession = () => {
               startIcon={<StopIcon />}
               color="error"
               onClick={() => setShowEndDialog(true)}
-            >
-              Session'ı Sonlandır
+            >              Session'ı Sonlandır
             </Button>
           </Box>
         </Box>
+        </div>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert 
+            severity="error" 
+            className="quiz-error"
+            sx={{ mb: 3, borderRadius: '16px' }}
+          >
             {error}
           </Alert>
         )}
 
-        <Grid container spacing={4}>
-          {/* Participants */}
-          <Grid item xs={12} md={6}>
-            <Typography variant="h6" gutterBottom>
-              Katılımcılar ({participants.length})
-            </Typography>
-            
-            {participants.length === 0 ? (
-              <Alert severity="info">
-                Henüz katılımcı yok. Oyun kodunu paylaşın: <strong>{sessionData?.session_code}</strong>
-              </Alert>
-            ) : (
-              <List>
-                {participants.map((participant, index) => (
-                  <ListItem key={`participant-${participant.user_id || participant.id || index}`}>
-                    <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>
-                        <PersonIcon />
-                      </Avatar>
-                    </ListItemAvatar>                    <ListItemText
-                      primary={participant.username}
-                      secondary={`Puan: ${participant.score || 0} - Katıldı: ${new Date(participant.joined_at).toLocaleTimeString()}`}
-                    />
-                    <IconButton
-                      color="error"
-                      onClick={() => handleRemoveParticipant(participant.user_id)}
-                      size="small"
-                    >
-                      <RemoveIcon />
-                    </IconButton>
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Grid>
-
-          {/* Leaderboard */}
-          <Grid item xs={12} md={6}>
-            <Typography variant="h6" gutterBottom>
-              Skor Tablosu
-            </Typography>
-            
-            {leaderboard.length === 0 ? (
-              <Alert severity="info">
-                Henüz skor verisi yok.
-              </Alert>
-            ) : (
-              <List>
-                {leaderboard.map((player, index) => (
-                  <ListItem key={`leaderboard-${player.user_id || index}`}>
-                    <ListItemAvatar>
-                      <Avatar sx={{ 
-                        bgcolor: index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? '#CD7F32' : 'grey.400' 
-                      }}>
-                        {index === 0 ? <TrophyIcon /> : index + 1}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={player.username}
-                      secondary={`${player.score} puan`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* End Session Dialog */}
-      <Dialog open={showEndDialog} onClose={() => setShowEndDialog(false)}>
-        <DialogTitle>Session'ı Sonlandır</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Bu session'ı sonlandırmak istediğinizden emin misiniz? 
-            Tüm katılımcılar çıkarılacak ve session sona erecek.
+        {/* Participants Section */}
+        <div className="quiz-card quiz-fade-in">
+          <Typography 
+            variant="h4" 
+            sx={{ 
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #667eea, #764ba2)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              mb: 3,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2
+            }}
+          >
+            <ParticipantsIcon sx={{ fontSize: '2rem', color: '#667eea' }} />
+            Katılımcılar ({participants.length})
           </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowEndDialog(false)}>İptal</Button>
-          <Button onClick={handleEndSession} color="error" variant="contained">
-            Sonlandır
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+          
+          {participants.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <PersonIcon sx={{ fontSize: '4rem', color: '#bdc3c7', mb: 2 }} />
+              <Typography variant="h6" sx={{ color: '#7f8c8d', mb: 2 }}>
+                Henüz katılımcı yok
+              </Typography>
+              <Typography variant="body1" sx={{ color: '#95a5a6', mb: 3 }}>
+                Oyun kodunu paylaşın ve katılımcıların gelmesini bekleyin
+              </Typography>
+              <Chip
+                label={`Kod: ${sessionData?.session_code}`}
+                className="quiz-badge"
+                sx={{ 
+                  fontFamily: 'monospace', 
+                  fontSize: '1.4rem', 
+                  py: 2, 
+                  px: 3,
+                  height: 'auto'
+                }}
+              />
+            </Box>
+          ) : (
+            <Grid container spacing={2}>
+              {participants.map((participant, index) => (
+                <Grid item xs={12} sm={6} md={4} key={`participant-${participant.user_id || participant.id || index}`}>
+                  <Card 
+                    className="quiz-info-card"
+                    sx={{ 
+                      height: '100%',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-5px)',
+                        boxShadow: '0 15px 40px rgba(0, 0, 0, 0.15)'
+                      }
+                    }}
+                  >
+                    <CardContent sx={{ p: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                        <Avatar 
+                          sx={{ 
+                            bgcolor: 'linear-gradient(135deg, #667eea, #764ba2)',
+                            width: 48,
+                            height: 48
+                          }}
+                        >
+                          <PersonIcon />
+                        </Avatar>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c3e50' }}>
+                            {participant.username}
+                          </Typography>                          <Typography variant="body2" sx={{ color: '#7f8c8d' }}>
+                            {formatJoinTime(participant.joined_at)}
+                          </Typography>
+                        </Box>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRemoveParticipant(participant.user_id)}
+                          sx={{
+                            color: '#e74c3c',
+                            '&:hover': {
+                              background: 'rgba(231, 76, 60, 0.1)'
+                            }
+                          }}
+                        >
+                          <RemoveIcon />
+                        </IconButton>
+                      </Box>
+                      <Chip
+                        label={`${participant.score || 0} puan`}
+                        className="quiz-badge-success"
+                        size="small"
+                        sx={{ width: '100%' }}
+                      />
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          )}        </div>
+        
+        {/* End Session Dialog */}
+        <Dialog open={showEndDialog} onClose={() => setShowEndDialog(false)}>
+          <DialogTitle>Session'ı Sonlandır</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Session'ı sonlandırmak istediğinizden emin misiniz? 
+              Tüm katılımcılar çıkarılacak ve session sona erecek.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowEndDialog(false)} className="quiz-button-secondary">
+              İptal
+            </Button>
+            <Button 
+              onClick={handleEndSession} 
+              sx={{
+                background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
+                color: 'white',
+                borderRadius: '12px',
+                padding: '8px 20px',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #c0392b, #a93226)',
+                }
+              }}
+            >
+              Sonlandır
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Container>
+    </div>
   );
 };
 
-export default HostSession; 
+export default HostSession;

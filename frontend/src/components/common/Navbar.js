@@ -72,10 +72,9 @@ const Navbar = () => {
                     background: 'rgba(255,255,255,0.2)',
                     transform: 'translateY(-2px)',
                   },
-                  transition: 'all 0.3s ease',
-                }}
+                  transition: 'all 0.3s ease',                }}
               >
-                🏠 Dashboard
+                Ana Sayfa
               </Button>
               <Button 
                 color="inherit" 
@@ -90,10 +89,9 @@ const Navbar = () => {
                     background: 'rgba(255,255,255,0.2)',
                     transform: 'translateY(-2px)',
                   },
-                  transition: 'all 0.3s ease',
-                }}
+                  transition: 'all 0.3s ease',                }}
               >
-                ➕ Create Quiz
+                Quiz Oluştur
               </Button>
             </>
           )}
@@ -113,10 +111,9 @@ const Navbar = () => {
                     transform: 'translateY(-2px)',
                   },
                   transition: 'all 0.3s ease',
-                }}
-              >
-                🏠 Dashboard
-              </Button>              <Button 
+                }}              >
+                Ana Sayfa
+              </Button>              <Button
                 color="inherit" 
                 onClick={() => navigate('/join')}
                 sx={{
@@ -129,10 +126,9 @@ const Navbar = () => {
                     background: 'rgba(255,255,255,0.2)',
                     transform: 'translateY(-2px)',
                   },
-                  transition: 'all 0.3s ease',
-                }}
+                  transition: 'all 0.3s ease',                }}
               >
-                🎮 Join Quiz
+                Quiz'e Katıl
               </Button>
             </>
           )}
@@ -186,9 +182,8 @@ const Navbar = () => {
                 '&:hover': {
                   background: 'rgba(102, 126, 234, 0.1)',
                 },
-              }}
-            >
-              👋 Hi, {user.username}!
+              }}            >
+              Merhaba, {user.username}!
             </MenuItem>
             <MenuItem 
               onClick={handleLogout}
@@ -197,10 +192,9 @@ const Navbar = () => {
                 color: '#e91e63',
                 '&:hover': {
                   background: 'rgba(233, 30, 99, 0.1)',
-                },
-              }}
+                },              }}
             >
-              🚪 Logout
+              Çıkış Yap
             </MenuItem>
           </Menu>
         </Box>

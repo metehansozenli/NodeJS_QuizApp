@@ -25,32 +25,32 @@ import { addQuestion } from '../../store/slices/quizSlice';
 
 const validationSchema = Yup.object({
   question_text: Yup.string()
-    .required('Question text is required')
-    .min(5, 'Question must be at least 5 characters')
-    .max(500, 'Question must not exceed 500 characters'),
-  media_url: Yup.string().url('Must be a valid URL'),
+    .required('Soru metni gereklidir')
+    .min(5, 'Soru en az 5 karakter olmalıdır')
+    .max(500, 'Soru en fazla 500 karakter olmalıdır'),
+  media_url: Yup.string().url('Geçerli bir URL olmalıdır'),
   time_limit: Yup.number()
-    .required('Time limit is required')
-    .min(5, 'Time limit must be at least 5 seconds')
-    .max(300, 'Time limit must not exceed 300 seconds'),
+    .required('Süre sınırı gereklidir')
+    .min(5, 'Süre sınırı en az 5 saniye olmalıdır')
+    .max(300, 'Süre sınırı en fazla 300 saniye olmalıdır'),
   points: Yup.number()
-    .required('Points are required')
-    .min(1, 'Points must be at least 1')
-    .max(100, 'Points must not exceed 100'),
+    .required('Puan gereklidir')
+    .min(1, 'Puan en az 1 olmalıdır')
+    .max(100, 'Puan en fazla 100 olmalıdır'),
   options: Yup.array()
     .of(
       Yup.object({
         text: Yup.string()
-          .required('Option text is required')
-          .max(200, 'Option text must not exceed 200 characters'),
+          .required('Seçenek metni gereklidir')
+          .max(200, 'Seçenek metni en fazla 200 karakter olmalıdır'),
       })
     )
-    .min(2, 'At least 2 options are required')
-    .max(6, 'Maximum 6 options allowed'),
+    .min(2, 'En az 2 seçenek gereklidir')
+    .max(6, 'En fazla 6 seçenek olabilir'),
   correct_option_index: Yup.number()
-    .required('Correct option must be selected')
-    .min(0, 'Invalid option')
-    .max(5, 'Invalid option'),
+    .required('Doğru seçenek belirtilmelidir')
+    .min(0, 'Geçersiz seçenek')
+    .max(5, 'Geçersiz seçenek'),
 });
 
 const AddQuestionForm = () => {
@@ -116,10 +116,9 @@ const AddQuestionForm = () => {
   };
 
   return (
-    <Container maxWidth="md">
-      <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
+    <Container maxWidth="md">      <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">
-          Add New Question
+          Yeni Soru Ekle
         </Typography>
 
         {error && (
@@ -130,10 +129,9 @@ const AddQuestionForm = () => {
 
         <form onSubmit={formik.handleSubmit}>
           <TextField
-            fullWidth
-            id="question_text"
+            fullWidth            id="question_text"
             name="question_text"
-            label="Question Text"
+            label="Soru Metni"
             multiline
             rows={3}
             value={formik.values.question_text}
@@ -145,10 +143,9 @@ const AddQuestionForm = () => {
           />
 
           <TextField
-            fullWidth
-            id="media_url"
+            fullWidth            id="media_url"
             name="media_url"
-            label="Media URL (optional)"
+            label="Medya URL (isteğe bağlı)"
             value={formik.values.media_url}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
@@ -160,10 +157,9 @@ const AddQuestionForm = () => {
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} sm={6}>
               <TextField
-                fullWidth
-                id="time_limit"
+                fullWidth                id="time_limit"
                 name="time_limit"
-                label="Time Limit (seconds)"
+                label="Süre Sınırı (saniye)"
                 type="number"
                 value={formik.values.time_limit}
                 onChange={formik.handleChange}
@@ -174,10 +170,9 @@ const AddQuestionForm = () => {
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
-                fullWidth
-                id="points"
+                fullWidth                id="points"
                 name="points"
-                label="Points"
+                label="Puan"
                 type="number"
                 value={formik.values.points}
                 onChange={formik.handleChange}
@@ -186,17 +181,14 @@ const AddQuestionForm = () => {
                 helperText={formik.touched.points && formik.errors.points}
               />
             </Grid>
-          </Grid>
-
-          <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>
-            Options
+          </Grid>          <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>
+            Seçenekler
           </Typography>
 
           {options.map((option, index) => (
-            <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <TextField
+            <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>              <TextField
                 fullWidth
-                label={`Option ${index + 1}`}
+                label={`Seçenek ${index + 1}`}
                 value={option.text}
                 onChange={(e) => handleOptionChange(index, e.target.value)}
                 error={formik.touched.options && !option.text}
@@ -218,16 +210,13 @@ const AddQuestionForm = () => {
 
           {options.length < 6 && (
             <Button
-              startIcon={<AddIcon />}
-              onClick={addOption}
+              startIcon={<AddIcon />}              onClick={addOption}
               sx={{ mb: 3 }}
             >
-              Add Option
+              Seçenek Ekle
             </Button>
-          )}
-
-          <FormControl fullWidth sx={{ mb: 3 }}>
-            <InputLabel id="correct-option-label">Correct Option</InputLabel>
+          )}          <FormControl fullWidth sx={{ mb: 3 }}>
+            <InputLabel id="correct-option-label">Doğru Seçenek</InputLabel>
             <Select
               labelId="correct-option-label"
               id="correct_option_index"
@@ -239,11 +228,11 @@ const AddQuestionForm = () => {
                 formik.touched.correct_option_index &&
                 Boolean(formik.errors.correct_option_index)
               }
-              label="Correct Option"
+              label="Doğru Seçenek"
             >
               {options.map((_, index) => (
                 <MenuItem key={index} value={index}>
-                  Option {index + 1}
+                  Seçenek {index + 1}
                 </MenuItem>
               ))}
             </Select>
@@ -259,9 +248,8 @@ const AddQuestionForm = () => {
               sx={{ minWidth: 200 }}
             >
               {loading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                'Add Question'
+                <CircularProgress size={24} color="inherit" />              ) : (
+                'Soru Ekle'
               )}
             </Button>
           </Box>

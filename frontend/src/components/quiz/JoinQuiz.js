@@ -982,10 +982,9 @@ const JoinQuiz = () => {
             </Alert>
           )}
 
-          <form onSubmit={handleJoinGame}>
-            <TextField
+          <form onSubmit={handleJoinGame}>            <TextField
               fullWidth
-              label="🎯 Oyun Kodu"
+              label="Oyun Kodu"
               value={joinForm.gameCode}
               onChange={(e) => handleInputChange('gameCode', e.target.value)}
               margin="normal"
@@ -1053,9 +1052,8 @@ const JoinQuiz = () => {
   const renderWaitingRoom = () => (
     <div className="kahoot-container">
       <Container maxWidth="md" sx={{ py: 4 }}>
-        <div className="kahoot-card kahoot-card-large">
-          <div className="kahoot-title">
-            🎯 {gameInfo?.game?.title || 'Quiz Lobby'}
+        <div className="kahoot-card kahoot-card-large">          <div className="kahoot-title">
+            {gameInfo?.game?.title || 'Quiz Lobby'}
           </div>
           
           <Typography 
@@ -1635,9 +1633,6 @@ const JoinQuiz = () => {
 
             {/* Auto-close timer */}
             <Box sx={{ mt: 3 }}>
-              <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                Otomatik olarak kapanacak...
-              </Typography>
               <LinearProgress 
                 variant="determinate" 
                 value={100} 

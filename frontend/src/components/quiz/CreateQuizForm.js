@@ -57,9 +57,9 @@ const CreateQuizForm = () => {
   return (
     <Container maxWidth="sm">
       <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center">
-          Create New Quiz
-        </Typography>
+        <Typography variant="h4" component="h1" gutterBottom align="center"          >
+            Yeni Quiz Oluştur
+          </Typography>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -69,10 +69,9 @@ const CreateQuizForm = () => {
 
         <form onSubmit={formik.handleSubmit}>
           <TextField
-            fullWidth
-            id="title"
+            fullWidth            id="title"
             name="title"
-            label="Quiz Title"
+            label="Quiz Başlığı"
             value={formik.values.title}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
@@ -82,10 +81,9 @@ const CreateQuizForm = () => {
           />
 
           <TextField
-            fullWidth
-            id="description"
+            fullWidth            id="description"
             name="description"
-            label="Description"
+            label="Açıklama"
             multiline
             rows={4}
             value={formik.values.description}
@@ -97,10 +95,9 @@ const CreateQuizForm = () => {
           />
 
           <TextField
-            fullWidth
-            id="background_music_url"
+            fullWidth            id="background_music_url"
             name="background_music_url"
-            label="Background Music URL (optional)"
+            label="Arka Plan Müziği URL (isteğe bağlı)"
             value={formik.values.background_music_url}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
@@ -121,10 +118,9 @@ const CreateQuizForm = () => {
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
                 color="primary"
-              />
-            }
-            label="Make this quiz public"
-            sx={{ mt: 2 }}
+              />            }
+            label="Bu quiz'i herkese açık yap"
+            sx={{ mt: 3, mb: 2 }}
           />
 
           <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
@@ -137,9 +133,8 @@ const CreateQuizForm = () => {
               sx={{ minWidth: 200 }}
             >
               {loading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                'Create Quiz'
+                <CircularProgress size={24} color="inherit" />              ) : (
+                'Quiz Oluştur'
               )}
             </Button>
           </Box>

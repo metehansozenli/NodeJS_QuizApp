@@ -16,8 +16,8 @@ import {
 import { login } from '../../store/slices/authSlice';
 
 const validationSchema = Yup.object({
-  username: Yup.string().required('Username is required'),
-  password: Yup.string().required('Password is required'),
+  username: Yup.string().required('Kullanıcı adı gereklidir'),
+  password: Yup.string().required('Şifre gereklidir'),
 });
 
 const LoginForm = () => {
@@ -48,12 +48,11 @@ const LoginForm = () => {
   return (
     <div className="kahoot-container">
       <Container maxWidth="sm" sx={{ py: 4 }}>
-        <div className="kahoot-card">
-          <div className="kahoot-title">
-            🎯 Welcome Back!
+        <div className="kahoot-card">          <div className="kahoot-title">
+            Tekrar Hoş Geldiniz!
           </div>
           <div className="kahoot-subtitle">
-            Ready to create amazing quizzes?
+            Harika quiz'ler oluşturmaya hazır mısınız?
           </div>
 
           {error && (
@@ -72,10 +71,9 @@ const LoginForm = () => {
 
           <form onSubmit={formik.handleSubmit}>
             <TextField
-              fullWidth
-              id="username"
+              fullWidth              id="username"
               name="username"
-              label="👤 Username"
+              label="👤 Kullanıcı Adı"
               value={formik.values.username}
               onChange={formik.handleChange}
               error={formik.touched.username && Boolean(formik.errors.username)}
@@ -94,10 +92,9 @@ const LoginForm = () => {
             />
 
             <TextField
-              fullWidth
-              id="password"
+              fullWidth              id="password"
               name="password"
-              label="🔒 Password"
+              label="🔒 Şifre"
               type="password"
               value={formik.values.password}
               onChange={formik.handleChange}
@@ -140,9 +137,8 @@ const LoginForm = () => {
               }}
             >
               {loading ? (
-                <CircularProgress size={24} sx={{ color: 'white' }} />
-              ) : (
-                '🚀 Let\'s Go!'
+                <CircularProgress size={24} sx={{ color: 'white' }} />              ) : (
+                'Başlayalım!'
               )}
             </Button>
           </form>
@@ -154,9 +150,8 @@ const LoginForm = () => {
                 color: '#666',
                 fontSize: '16px'
               }}
-            >
-              New to our platform?{' '}
-              <Link 
+            >              Platformumuza yeni misiniz?{' '}
+              <Link
                 component={RouterLink} 
                 to="/register"
                 sx={{
@@ -168,7 +163,7 @@ const LoginForm = () => {
                   }
                 }}
               >
-                Create Account 🎉
+                Hesap Oluştur 🎉
               </Link>
             </Typography>
           </Box>

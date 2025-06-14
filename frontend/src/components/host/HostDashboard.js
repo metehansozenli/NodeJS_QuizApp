@@ -142,10 +142,10 @@ const HostDashboard = () => {
                 mb: 1
               }}
             >
-              🎯 Quiz Dashboard
+              Quiz Menüsü
             </Typography>
             <Typography variant="h6" sx={{ color: '#666', fontWeight: 500 }}>
-              Create amazing quizzes and engage your audience!
+              Muhteşem quizler yaratın ve kullanıcıların ilgisini çekin!
             </Typography>
           </div>
           <Button
@@ -167,7 +167,7 @@ const HostDashboard = () => {
               boxShadow: '0 8px 25px rgba(233, 30, 99, 0.4)',
             }}
           >
-            ✨ Create New Quiz
+            ✨ Yeni Quiz Oluştur
           </Button>
           <Button
             variant="outlined"
@@ -213,12 +213,11 @@ const HostDashboard = () => {
 
         {quizzes.length === 0 ? (
           <div className="kahoot-card kahoot-card-large" style={{ textAlign: 'center', padding: '60px 40px' }}>
-            <div style={{ fontSize: '80px', marginBottom: '20px' }}>🎮</div>
-            <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#333', mb: 2 }}>
-              Ready to Create Your First Quiz?
+            <div style={{ fontSize: '80px', marginBottom: '20px' }}>🎮</div>            <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#333', mb: 2 }}>
+              İlk Quiz'inizi Oluşturmaya Hazır mısınız?
             </Typography>
             <Typography variant="h6" sx={{ color: '#666', mb: 4 }}>
-              Start engaging your audience with interactive quizzes!
+              Etkileşimli quizlerle izleyicilerinizin ilgisini çekin!
             </Typography>
             <Button
               variant="contained"
@@ -239,34 +238,25 @@ const HostDashboard = () => {
                 boxShadow: '0 8px 25px rgba(102, 126, 234, 0.4)',
               }}
             >
-              🚀 Create Your First Quiz
+              🚀 İlk Quiz'inizi Oluşturun
             </Button>
           </div>
         ) : (
           <Grid container spacing={3}>
             {quizzes.map((quiz) => (
-              <Grid item xs={12} sm={6} md={4} key={quiz.id}>
-                <Card className="quiz-card" sx={{ 
+              <Grid item xs={12} sm={6} md={4} key={quiz.id}>                <Card className="quiz-card" sx={{ 
                   height: '100%', 
                   display: 'flex', 
                   flexDirection: 'column',
-                  background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
-                  border: '2px solid transparent',
-                  backgroundClip: 'padding-box',
-                  position: 'relative',
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    borderRadius: '15px',
-                    padding: '2px',
-                    background: 'linear-gradient(45deg, #667eea, #764ba2)',
-                    mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-                    maskComposite: 'exclude',
-                    pointerEvents: 'none',
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(20px)',
+                  borderRadius: '24px',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    transform: 'translateY(-5px)',
+                    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.15)',
                   }
                 }}>
                   <CardContent sx={{ flexGrow: 1, p: 3 }}>
@@ -295,7 +285,7 @@ const HostDashboard = () => {
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
                       <Chip
                         icon={<QuizIcon />}
-                        label={`${quiz.questions_count || 0} questions`}
+                        label={`${quiz.questions_count || 0} soru`}
                         size="medium"
                         sx={{
                           background: 'linear-gradient(45deg, #667eea, #764ba2)',
@@ -308,7 +298,7 @@ const HostDashboard = () => {
                       />
                       {quiz.is_public && (
                         <Chip
-                          label="🌍 Public"
+                          label="🌍 Herkese Açık"
                           size="medium"
                           sx={{
                             background: 'linear-gradient(45deg, #4caf50, #8bc34a)',
@@ -318,9 +308,8 @@ const HostDashboard = () => {
                         />
                       )}
                     </Box>
-                    
-                    <Typography variant="body2" sx={{ color: '#999', fontWeight: 500 }}>
-                      📅 Created: {new Date(quiz.created_at).toLocaleDateString('en-US')}
+                      <Typography variant="body2" sx={{ color: '#999', fontWeight: 500 }}>
+                      📅 Oluşturulma: {new Date(quiz.created_at).toLocaleDateString('tr-TR')}
                     </Typography>
                   </CardContent>
                   
@@ -342,7 +331,7 @@ const HostDashboard = () => {
                         boxShadow: '0 4px 15px rgba(255, 152, 0, 0.3)',
                       }}
                     >
-                      👁️ View
+                      View
                     </Button>
                     <Button
                       variant="contained"
@@ -368,7 +357,7 @@ const HostDashboard = () => {
                           : 'none',
                       }}
                     >
-                      🚀 Start
+                      Başlat
                     </Button>
                   </CardActions>
                 </Card>
@@ -400,7 +389,7 @@ const HostDashboard = () => {
             }}
           >
             <EditIcon sx={{ mr: 2, color: '#667eea' }} />
-            ✏️ Edit Quiz
+            Quiz'i Düzenle
           </MenuItem>
           <MenuItem 
             onClick={() => {
@@ -410,12 +399,10 @@ const HostDashboard = () => {
             sx={{
               fontWeight: 'bold',
               '&:hover': { background: 'rgba(255, 152, 0, 0.1)' }
-            }}
-          >
+            }}          >
             <ViewIcon sx={{ mr: 2, color: '#ff9800' }} />
-            👁️ View Details
-          </MenuItem>
-          <MenuItem 
+            Detayları Görüntüle
+          </MenuItem><MenuItem 
             onClick={() => {
               const quiz = quizzes.find(q => q.id === menuQuizId);
               openDeleteDialog(quiz);
@@ -426,7 +413,7 @@ const HostDashboard = () => {
             }}
           >
             <DeleteIcon sx={{ mr: 2, color: '#f44336' }} />
-            🗑️ Delete Quiz
+            Quiz'i Sil
           </MenuItem>
         </Menu>
 
@@ -440,13 +427,12 @@ const HostDashboard = () => {
               background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
             }
           }}
-        >
-          <DialogTitle sx={{ fontWeight: 'bold', fontSize: '24px', color: '#333' }}>
-            🗑️ Delete Quiz
+        >          <DialogTitle sx={{ fontWeight: 'bold', fontSize: '24px', color: '#333' }}>
+            Quiz'i Sil
           </DialogTitle>
           <DialogContent sx={{ pb: 2 }}>
             <Typography sx={{ fontSize: '16px', color: '#666' }}>
-              Are you sure you want to delete "{selectedQuiz?.title}"? This action cannot be undone.
+              "{selectedQuiz?.title}" quiz'ini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
             </Typography>
           </DialogContent>
           <DialogActions sx={{ p: 3, gap: 2 }}>
@@ -464,7 +450,7 @@ const HostDashboard = () => {
                 }
               }}
             >
-              Cancel
+              İptal
             </Button>
             <Button 
               onClick={handleDeleteQuiz} 
@@ -482,7 +468,7 @@ const HostDashboard = () => {
                 boxShadow: '0 4px 15px rgba(244, 67, 54, 0.4)',
               }}
             >
-              🗑️ Delete
+              🗑️ Sil
             </Button>
           </DialogActions>
         </Dialog>

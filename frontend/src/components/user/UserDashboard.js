@@ -18,12 +18,11 @@ const UserDashboard = () => {
   return (
     <div className="kahoot-container">
       <Container maxWidth="md" sx={{ py: 4 }}>
-        <div className="kahoot-card kahoot-card-large">
-          <div className="kahoot-title">
-            👋 Welcome, {user?.username}!
+        <div className="kahoot-card kahoot-card-large">          <div className="kahoot-title">
+            Hoş Geldin, {user?.username}!
           </div>
           <div className="kahoot-subtitle">
-            Ready to test your knowledge? Join exciting quizzes!
+            Bilgini test etmeye hazır mısın? Heyecan verici quiz'lere katıl!
           </div>
 
           <Grid container spacing={4} sx={{ mt: 2 }}>
@@ -42,12 +41,11 @@ const UserDashboard = () => {
                 }
               }}>
                 <CardContent sx={{ flexGrow: 1, textAlign: 'center', p: 4 }}>
-                  <div style={{ fontSize: '80px', marginBottom: '20px' }}>🎮</div>
-                  <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 2 }}>
-                    Join Quiz
+                  <div style={{ fontSize: '80px', marginBottom: '20px' }}>🎮</div>                  <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 2 }}>
+                    Quiz'e Katıl
                   </Typography>
                   <Typography sx={{ mb: 3, fontSize: '16px', opacity: 0.9 }}>
-                    Enter a game code to join live quizzes and compete with others!
+                    Canlı quiz'lere katılmak ve diğerleriyle yarışmak için oyun kodunu gir!
                   </Typography>
                   <Button
                     variant="contained"
@@ -66,10 +64,9 @@ const UserDashboard = () => {
                       '&:hover': {
                         background: 'rgba(255,255,255,0.3)',
                         transform: 'translateY(-2px)',
-                      },
-                    }}
+                      },                    }}
                   >
-                    🚀 Join Game
+                    Oyuna Katıl
                   </Button>
                 </CardContent>
               </Card>
@@ -90,12 +87,11 @@ const UserDashboard = () => {
                 }
               }}>
                 <CardContent sx={{ flexGrow: 1, textAlign: 'center', p: 4 }}>
-                  <div style={{ fontSize: '80px', marginBottom: '20px' }}>📊</div>
-                  <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 2 }}>
-                    Browse Quizzes
+                  <div style={{ fontSize: '80px', marginBottom: '20px' }}>📊</div>                  <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 2 }}>
+                    Quiz'leri Keşfet
                   </Typography>
                   <Typography sx={{ mb: 3, fontSize: '16px', opacity: 0.9 }}>
-                    Explore available public quizzes and practice your skills!
+                    Mevcut herkese açık quiz'leri keşfet ve becerilerini geliştir!
                   </Typography>
                   <Button
                     variant="contained"
@@ -114,10 +110,9 @@ const UserDashboard = () => {
                       '&:hover': {
                         background: 'rgba(255,255,255,0.3)',
                         transform: 'translateY(-2px)',
-                      },
-                    }}
+                      },                    }}
                   >
-                    🔍 Explore
+                    Keşfet
                   </Button>
                 </CardContent>
               </Card>
@@ -162,10 +157,9 @@ const UserDashboard = () => {
                       '&:hover': {
                         background: 'rgba(255,255,255,0.3)',
                         transform: 'translateY(-2px)',
-                      },
-                    }}
+                      },                    }}
                   >
-                    📜 Geçmişim
+                    Geçmişim
                   </Button>
                 </CardContent>
               </Card>
@@ -178,33 +172,32 @@ const UserDashboard = () => {
             background: 'rgba(102, 126, 234, 0.1)',
             borderRadius: '20px',
             textAlign: 'center'
-          }}>
-            <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#333', mb: 2 }}>
-              🎯 How to Play
+          }}>            <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#333', mb: 2 }}>
+              Nasıl Oynanır
             </Typography>
             <Grid container spacing={3}>
               <Grid item xs={12} md={4}>
                 <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#667eea', mb: 1 }}>
-                  1. Get Code
+                  1. Kod Al
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#666' }}>
-                  Ask your host for the 6-digit game code
+                  Host'tan 6 haneli oyun kodunu iste
                 </Typography>
               </Grid>
               <Grid item xs={12} md={4}>
                 <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#e91e63', mb: 1 }}>
-                  2. Join Game
+                  2. Oyuna Katıl
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#666' }}>
-                  Enter the code and join the quiz lobby
+                  Kodu gir ve quiz lobisine katıl
                 </Typography>
               </Grid>
               <Grid item xs={12} md={4}>
                 <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#4caf50', mb: 1 }}>
-                  3. Play & Win
+                  3. Oyna ve Kazan
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#666' }}>
-                  Answer questions fast and climb the leaderboard!
+                  Soruları hızlı cevapla ve sıralamada yüksel!
                 </Typography>
               </Grid>
             </Grid>

@@ -21,6 +21,7 @@ import SessionHistoryDetail from './components/history/SessionHistoryDetail';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import PublicRoute from './components/common/PublicRoute';
 import BrowseQuizzes from './components/quiz/BrowseQuizzes';
+import './styles/quiz-theme.css';
 
 // Dashboard redirect component
 const DashboardRedirect = () => {
