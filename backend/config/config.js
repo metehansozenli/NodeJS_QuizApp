@@ -25,7 +25,7 @@ const config = {
 
   // CORS Configuration
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: (process.env.CORS_ORIGIN || 'http://localhost:3000').split(','),
     credentials: true
   },
 
@@ -58,4 +58,4 @@ const config = {
   }
 };
 
-module.exports = config; 
+module.exports = config;
