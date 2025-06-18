@@ -273,7 +273,7 @@ describe('Socket Testleri', () => {
     });
 
     beforeEach((done) => {
-        socketClient = io('http://localhost:5000', { auth: { token: '' } });
+        socketClient = io('https://nodejs-quizapp.onrender.com', { auth: { token: '' } });
         socketClient.on('connect', done);
     });
     afterEach(() => {
@@ -340,9 +340,9 @@ describe('Socket Testleri', () => {
 
     it('Host disconnect olursa sessionEnded eventini almalı', (done) => {
         // Host socket
-        const hostSocket = io('http://localhost:5000', { auth: { token: '' } });
+        const hostSocket = io('https://nodejs-quizapp.onrender.com', { auth: { token: '' } });
         // Oyuncu socket
-        const playerSocket = io('http://localhost:5000', { auth: { token: '' } });
+        const playerSocket = io('https://nodejs-quizapp.onrender.com', { auth: { token: '' } });
         playerSocket.emit('joinSession', {
             username: 'player1',
             quizId: testQuiz.id
@@ -367,9 +367,9 @@ describe('Socket Testleri', () => {
 
     it('İki kullanıcı aynı oturuma katılabilmeli', (done) => {
         // İlk kullanıcı için socket
-        const socket1 = io('http://localhost:5000', { auth: { token: '' } });
+        const socket1 = io('https://nodejs-quizapp.onrender.com', { auth: { token: '' } });
         // İkinci kullanıcı için socket
-        const socket2 = io('http://localhost:5000', { auth: { token: '' } });
+        const socket2 = io('https://nodejs-quizapp.onrender.com', { auth: { token: '' } });
         
         let joinedUsers = [];
 

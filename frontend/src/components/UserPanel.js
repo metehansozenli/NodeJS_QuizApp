@@ -4,7 +4,7 @@ import { Box, Button, TextField, Typography, Paper, List, ListItem, ListItemText
 import GroupIcon from '@mui/icons-material/Group';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 
-const socket = io('http://localhost:5000');
+const socket = io('https://nodejs-quizapp.onrender.com');
 
 const UserPanel = () => {
   const [sessionId, setSessionId] = useState('');

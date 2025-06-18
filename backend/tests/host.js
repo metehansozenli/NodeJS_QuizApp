@@ -1,5 +1,5 @@
 // host.js - Simple logic for host.html
-const apiBase = "http://localhost:5000"; // Adjust port if needed
+const apiBase = "https://nodejs-quizapp.onrender.com"; // Adjust port if needed
 let currentSessionId = null;
 
 // Socket.io bağlantısı en başta tanımlanmalı

@@ -12,7 +12,7 @@ const HostView = () => {
 
   useEffect(() => {
     // Socket.io bağlantısını kur
-    const newSocket = io('http://localhost:5000', {
+    const newSocket = io('https://nodejs-quizapp.onrender.com', {
       auth: { token: localStorage.getItem('token') }
     });
     setSocket(newSocket);
@@ -59,7 +59,7 @@ const HostView = () => {
 
   const fetchQuizzes = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/quiz/fetchQuizList');
+      const response = await fetch('https://nodejs-quizapp.onrender.com/api/quiz/fetchQuizList');
       const data = await response.json();
       setQuizzes(data);
       console.log('Fetched quizzes:', data); // Debug için log

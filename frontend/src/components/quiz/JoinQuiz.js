@@ -757,7 +757,7 @@ const JoinQuiz = () => {
 
     try {
       // Join session via API
-      const response = await fetch('http://localhost:5000/api/session/addParticipant', {
+      const response = await fetch('https://nodejs-quizapp.onrender.com/api/session/addParticipant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -927,7 +927,7 @@ const JoinQuiz = () => {
       });
       
       // Also submit via API for persistence
-      fetch('http://localhost:5000/api/answer/submit', {
+      fetch('https://nodejs-quizapp.onrender.com/api/answer/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

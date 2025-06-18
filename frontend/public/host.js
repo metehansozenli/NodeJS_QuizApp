@@ -1,5 +1,5 @@
 // Host Quiz Management Dashboard
-const apiBase = "http://localhost:5000/api";
+const apiBase = "https://nodejs-quizapp.onrender.com/api";
 let socket = null;
 let currentSession = null;
 let currentQuiz = null;
@@ -7,7 +7,7 @@ let questionBank = [];
 
 // Initialize socket connection
 function initializeSocket() {
-    socket = io('http://localhost:5000', {
+    socket = io('https://nodejs-quizapp.onrender.com', {
         auth: {
             token: localStorage.getItem('token') || ''
         }

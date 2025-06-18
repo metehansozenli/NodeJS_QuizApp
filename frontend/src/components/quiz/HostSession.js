@@ -112,7 +112,7 @@ const HostSession = () => {
         return;
       }
       
-      const response = await fetch(`http://localhost:5000/api/session/state/${sessionId}`);
+      const response = await fetch(`https://nodejs-quizapp.onrender.com/api/session/state/${sessionId}`);
       
       if (!response.ok) {
         console.error('Response not ok:', response.status, response.statusText);
@@ -301,7 +301,7 @@ const HostSession = () => {
   const handleStartGame = async () => {
     try {
       // Update session status to ACTIVE
-      const response = await fetch(`http://localhost:5000/api/session/state/${sessionId}`, {
+      const response = await fetch(`https://nodejs-quizapp.onrender.com/api/session/state/${sessionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'ACTIVE' })
@@ -435,7 +435,7 @@ const HostSession = () => {
 
   const handleEndSession = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/session/end', {
+      const response = await fetch('https://nodejs-quizapp.onrender.com/api/session/end', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId })
@@ -455,7 +455,7 @@ const HostSession = () => {
 
   const handleRemoveParticipant = async (userId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/session/${sessionId}/remove-participant/${userId}`, {
+      const response = await fetch(`https://nodejs-quizapp.onrender.com/api/session/${sessionId}/remove-participant/${userId}`, {
         method: 'PUT'
       });
       
@@ -483,7 +483,7 @@ const HostSession = () => {
   };
   const loadQuestionAnalytics = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/session/${sessionId}/analytics`);
+      const response = await fetch(`https://nodejs-quizapp.onrender.com/api/session/${sessionId}/analytics`);
       if (response.ok) {
         const analytics = await response.json();
         setQuestionAnalytics(analytics);
@@ -998,59 +998,51 @@ const HostSession = () => {
                 ))}
               </Grid>
             </div>
-          )}          {/* Participants List */}
+          )}
+
+          {/* Participants List */}
           <Grid container spacing={4}>
             <Grid item xs={12} md={6}>
-              <Card className="quiz-card">
-                <CardContent>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#333' }}>
-                    Katılımcılar ({participants.length})
-                  </Typography>
-                  <List sx={{ maxHeight: 300, overflow: 'auto' }}>
-                    {participants.map((participant, index) => (
-                      <ListItem key={`active-participant-${participant.user_id || participant.id || index}`}>
-                        <ListItemAvatar>
-                          <Avatar sx={{ bgcolor: 'primary.main' }}>
-                            <PersonIcon />
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={participant.username}
-                          secondary={`Puan: ${participant.score || 0}`}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                </CardContent>
-              </Card>
+              <Typography variant="h6" gutterBottom>
+                Katılımcılar ({participants.length})
+              </Typography>
+                             <List sx={{ maxHeight: 300, overflow: 'auto' }}>
+                 {participants.map((participant, index) => (
+                   <ListItem key={`active-participant-${participant.user_id || participant.id || index}`}>
+                     <ListItemAvatar>
+                       <Avatar sx={{ bgcolor: 'primary.main' }}>
+                         <PersonIcon />
+                       </Avatar>
+                     </ListItemAvatar>
+                     <ListItemText
+                       primary={participant.username}
+                       secondary={`Puan: ${participant.score || 0}`}
+                     />
+                   </ListItem>
+                 ))}
+               </List>
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <Card className="quiz-card">
-                <CardContent>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#333' }}>
-                    Anlık Skor Tablosu
-                  </Typography>
-                  <List sx={{ maxHeight: 300, overflow: 'auto' }}>
-                    {leaderboard.slice(0, 10).map((player, index) => (
-                      <ListItem key={`leaderboard-${player.user_id || index}`}>
-                        <ListItemAvatar>
-                          <Avatar sx={{ 
-                            bgcolor: index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? '#CD7F32' : 'grey.400' 
-                          }}>
-                            {index === 0 ? <TrophyIcon /> : index + 1}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={player.username}
-                          secondary={`${player.score} puan`}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                </CardContent>
-              </Card>
-            </Grid>
+              <Typography variant="h6" gutterBottom>
+                Anlık Skor Tablosu
+              </Typography>
+              <List sx={{ maxHeight: 300, overflow: 'auto' }}>
+                {leaderboard.slice(0, 10).map((player, index) => (
+                  <ListItem key={`leaderboard-${player.user_id || index}`}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ 
+                        bgcolor: index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? '#CD7F32' : 'grey.400' 
+                      }}>
+                        {index === 0 ? <TrophyIcon /> : index + 1}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={player.username}
+                      secondary={`${player.score} puan`}
+                    />
+                  </ListItem>                ))}
+              </List>            </Grid>
           </Grid>
           
           {/* End Game Dialog */}

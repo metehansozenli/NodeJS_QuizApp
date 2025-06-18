@@ -36,7 +36,7 @@ const UserDashboard = () => {
 
   // Socket bağlantısını kur
   useEffect(() => {
-    const newSocket = io('http://localhost:5000');
+    const newSocket = io('https://nodejs-quizapp.onrender.com');
     setSocket(newSocket);
 
     // Socket event listeners
@@ -78,7 +78,7 @@ const UserDashboard = () => {
     setError('');
     setSuccess('');    try {
       // REST API ile session'a katıl
-      const response = await fetch('http://localhost:5000/api/session/addParticipant', {
+      const response = await fetch('https://nodejs-quizapp.onrender.com/api/session/addParticipant', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -117,7 +117,7 @@ const UserDashboard = () => {
     if (!joinedSession || !user?.username) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/session/${joinedSession}/remove-participant/${user.username}`, {
+      const response = await fetch(`https://nodejs-quizapp.onrender.com/api/session/${joinedSession}/remove-participant/${user.username}`, {
         method: 'DELETE',
       });
 

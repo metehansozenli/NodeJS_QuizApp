@@ -14,7 +14,7 @@ class SocketService {
     }
 
     console.log('Creating new socket connection...');
-    this.socket = io('http://localhost:5000', {
+    this.socket = io('https://nodejs-quizapp.onrender.com', {
       autoConnect: true,
       forceNew: true,
       transports: ['polling', 'websocket'],
