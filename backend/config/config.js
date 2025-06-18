@@ -32,7 +32,7 @@ const config = {
   // Socket.IO Configuration
   socket: {
     cors: {
-      origin: process.env.SOCKET_CORS_ORIGIN || 'http://localhost:3000',
+      origin: (process.env.SOCKET_CORS_ORIGIN || 'http://localhost:3000').split(','),
       methods: ['GET', 'POST'],
       credentials: true
     }
